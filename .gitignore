@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 权重与数据（体积大 / 许可受限，不入库）
+*.pt
+*.pth
+*.onnx
+runs/
+weights/
+data/
+
+# 输出
+*.mp4
+out/
+
+# 二进制渲染产物（由 .md 重新生成，GitHub 原生渲染）
+*.pdf
+*.docx
+*.pptx
+*.zip

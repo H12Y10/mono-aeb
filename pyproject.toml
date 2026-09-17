@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mono-aeb"
+version = "0.1.0"
+description = "检测器无关的单目 AEB 前向碰撞预警决策链：检测→跟踪→测距→TTC→风险决策（免标定尺度 TTC）"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["AEB", "FCW", "forward-collision-warning", "monocular", "time-to-collision", "TTC", "autonomous-driving"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "lap",
+    "opencv-python",
+    "ultralytics",
+]
+
+[project.optional-dependencies]
+dfine = ["torch", "torchvision", "pillow"]
+
+[tool.setuptools.packages.find]
+include = ["aeb*"]
