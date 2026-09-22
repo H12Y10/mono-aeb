@@ -15,7 +15,7 @@ A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-pa
 - **距离 TTC + 融合**：地面平面测距反推接近速度，与尺度 TTC 取最小值，`persist_k` 帧保持抑制抖动。
 - **速度自适应阈值**：`τ_AEB(v) = t_react + v / (2·a_max)`，FCW / ATTENTION 在此之上加固定前置余量，整条决策梯度随车速平移。
 - **逐视频自标定**：用 GPS ego 速度 + 免标定尺度 TTC 联合反解测距尺度 `f·H` 与地平线 `horizon_y`，消除 BDD100K 逐视频相机参数不一致的问题。
-- **内置 ByteTrack**：跟踪器已 vendored（`third_party/ByteTrack`），无需额外安装。
+- **内置 ByteTrack**：跟踪器已 vendored 进包内（`aeb/tracker/vendor/bytetrack/`），随 wheel 一起分发，无需额外安装。
 
 ## 决策链
 
@@ -55,7 +55,13 @@ pip install -e .
 pip install lapx
 ```
 
-代码已在 `third_party/ByteTrack/yolox/tracker/matching.py` 中内置兜底（`import lap` 失败时自动回退到 `lapx`）。
+代码已在 `aeb/tracker/vendor/bytetrack/yolox/tracker/matching.py` 中内置兜底（`import lap` 失败时自动回退到 `lapx`）。
+
+ByteTrack 本身已作为**最小子集 vendored 进包内**（`aeb/tracker/vendor/bytetrack/`，MIT License），随 wheel 一起安装，因此 `pip install -e .` 与常规 `pip install` 都能直接使用，无需额外拉取上游仓库。若要改用外部/完整版 ByteTrack：
+
+| 环境变量 | 含义 |
+| --- | --- |
+| `BYTETRACK_ROOT` | ByteTrack 仓库根目录（内含 `yolox/tracker/`），覆盖包内 vendor 默认 |
 
 若 `pip install -e .` 因 `lap` 无对应 wheel 而中止，可先装 `lapx`，再跳过依赖解析安装本包：
 
@@ -176,6 +182,7 @@ mono-aeb/
 │   ├── ego_speed.py        # 从 BDD100K info/*.json 读 GPS 速度
 │   ├── detectors/          # BaseDetector + YOLOv8 + D-FINE
 │   ├── tracker/            # ByteTrack 适配 + cython_bbox numpy shim
+│   │   └── vendor/bytetrack/   # vendored ByteTrack（MIT，最小子集，随包分发）
 │   ├── distance/           # 地面平面测距
 │   ├── ttc/                # 尺度 TTC / 距离 TTC / 融合 / 轨迹历史
 │   ├── in_path/            # 固定梯形 ROI（自车路径走廊）
@@ -184,7 +191,6 @@ mono-aeb/
 │   ├── quickstart.py       # 一键 demo（--demo / --check）
 │   ├── demo_aeb.py         # 真实视频离线 demo
 │   └── calibrate_video.py  # 逐视频自标定 CLI
-├── third_party/ByteTrack/  # vendored ByteTrack（MIT，最小子集）
 ├── pyproject.toml
 ├── LICENSE
 └── README.md
@@ -212,7 +218,7 @@ $$
 \tau_{scale} = \frac{s}{\dot{s}}
 $$
 
-实现上对 `(t, 1/s)` 做 Theil-Sen 稳健线性拟合，得斜率 `b`，则 `τ_scale = −1 / (b · s_now)`。Theil-Sen 对约 50% 离群不敏感，优于普通最小二乘。
+实现上对 `(t, 1/s)` 做 Theil-Sen 稳健线性拟合，得斜率 `b`，则 `τ_scale = −1 / (b · s_now)`。Theil-Sen 取成对斜率的中位数，崩溃点约 `29%`（`1 − 1/√2`），对显著比例的离群点稳健，优于崩溃点为 `0` 的普通最小二乘。
 
 ### 距离 TTC 与融合
 
@@ -273,7 +279,7 @@ python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov -
 
 | 组件 | 许可 | 用途 |
 | --- | --- | --- |
-| [ByteTrack](https://github.com/ifzhang/ByteTrack) | MIT | 多目标跟踪（已 vendored 最小子集于 `third_party/ByteTrack/`） |
+| [ByteTrack](https://github.com/ifzhang/ByteTrack) | MIT | 多目标跟踪（已 vendored 最小子集于 `aeb/tracker/vendor/bytetrack/`，许可证原文随包分发） |
 | [D-FINE](https://github.com/Peterande/D-FINE) | Apache-2.0 | 可选高精度检测后端 |
 | [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | 默认检测后端 |
 | [BDD100K](https://bdd-data.berkeley.edu/) | 仅学术 / 非商业、禁止再分发 | 训练数据（权重受限分发） |

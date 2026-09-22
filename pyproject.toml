@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,9 +8,11 @@ version = "0.1.0"
 description = "检测器无关的单目 AEB 前向碰撞预警决策链：检测→跟踪→测距→TTC→风险决策（免标定尺度 TTC）"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "aeb/tracker/vendor/bytetrack/LICENSE"]
+authors = [{ name = "mono-aeb contributors" }]
 keywords = ["AEB", "FCW", "forward-collision-warning", "monocular", "time-to-collision", "TTC", "autonomous-driving"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -25,5 +27,15 @@ dependencies = [
 [project.optional-dependencies]
 dfine = ["torch", "torchvision", "pillow"]
 
+[project.urls]
+Homepage = "https://github.com/H12Y10/mono-aeb"
+Repository = "https://github.com/H12Y10/mono-aeb"
+Issues = "https://github.com/H12Y10/mono-aeb/issues"
+
 [tool.setuptools.packages.find]
 include = ["aeb*"]
+
+# vendored ByteTrack（MIT）的许可证原文随包分发，与 dist-info/licenses 下的副本并存，
+# 保证「源码旁边就有它自己的许可声明」，满足 MIT 的保留声明要求。
+[tool.setuptools.package-data]
+"aeb.tracker.vendor.bytetrack" = ["LICENSE"]

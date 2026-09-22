@@ -1,7 +1,8 @@
 """ByteTrack 封装：按类别各建一个 tracker。
 
-依赖 ByteTrack（MIT License，只 import 其 byte_tracker/basetrack；默认用仓库内
-vendor 的 third_party/ByteTrack，可用 BYTETRACK_ROOT 环境变量覆盖），
+依赖 ByteTrack（MIT License，只 import 其 byte_tracker/basetrack；默认用包内
+vendor 的 `aeb/tracker/vendor/bytetrack`，随 wheel 一起分发，editable 与常规安装
+行为一致；可用 BYTETRACK_ROOT 环境变量覆盖为外部 ByteTrack 仓库），
 并用本地 numpy shim 顶替 cython_bbox。
 """
 
@@ -15,11 +16,13 @@ import numpy as np
 from .base import BaseTracker
 from ..types import Detection, Track
 
-# ByteTrack 根目录：优先取 BYTETRACK_ROOT 环境变量，否则回退到仓库内 vendor 的
-# 最小子集（third_party/ByteTrack，MIT License）。cython_bbox 由本地 numpy shim 顶替。
-#   BYTETRACK_ROOT  ByteTrack 仓库根目录（内含 yolox/tracker/），可覆盖 vendor 默认
+# ByteTrack 根目录：优先取 BYTETRACK_ROOT 环境变量，否则回退到包内 vendor 的最小子集
+# （aeb/tracker/vendor/bytetrack，MIT License）。cython_bbox 由本地 numpy shim 顶替。
+#   BYTETRACK_ROOT  ByteTrack 仓库根目录（内含 yolox/tracker/），可覆盖包内 vendor 默认
+# 注意：默认路径基于 __file__ 同级的 vendor/，因此 editable 安装（指向源码树）与常规
+# 安装（指向 site-packages/aeb/tracker/）都能解析到，不再依赖仓库根目录层级。
 _BYTETRACK_ROOT = os.environ.get("BYTETRACK_ROOT") or (
-    Path(__file__).resolve().parents[2] / "third_party" / "ByteTrack")
+    Path(__file__).resolve().parent / "vendor" / "bytetrack")
 _SHIM_DIR = Path(__file__).resolve().parent / "byte_shims"
 
 
@@ -43,8 +46,8 @@ def _ensure_importable():
     root = Path(_BYTETRACK_ROOT)
     if not root.exists():
         raise RuntimeError(
-            "ByteTrack 源码不可用：请确认 BYTETRACK_ROOT 环境变量指向 ByteTrack 仓库，"
-            "或从源码安装/运行本仓库以使用 vendor 的 third_party/ByteTrack")
+            f"ByteTrack 源码不可用（{root} 不存在）：包内 vendor 副本缺失时请重装本包；"
+            "若设置了 BYTETRACK_ROOT，请确认它指向 ByteTrack 仓库根目录（内含 yolox/tracker/）")
     for p in (_SHIM_DIR, root):
         if str(p) not in sys.path:
             sys.path.insert(0, str(p))

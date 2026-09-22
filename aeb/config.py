@@ -3,8 +3,11 @@
 相机标定（BDD100K 众包采集、相机逐视频不同，无统一内参）：
   - 测距只用 f·H 这一个「尺度」量（focal_height 属性），f、H 存在尺度简并；
   - horizon_y 由车道线消失点逐视频求；
-  - 尺度逐视频自标定：calibrate_from_ego_speed()（ego 速度 + 尺度 TTC）或
-    calibrate_from_known_width()（已知车宽）；
+  - 尺度逐视频自标定（实际入口）：examples/calibrate_video.py 用 calibration.py 的
+    estimate_ground_plane() 联合反解 f·H 与 horizon_y，再经 calibrate_scale()/
+    calibrate_horizon() 落到本类；
+  - calibrate_from_ego_speed()（ego 速度 + 尺度 TTC）与 calibrate_from_known_width()
+    （已知车宽）为**接口预留，当前无调用点**；
   - 下面这组默认值只是逐视频标定的初始化/fallback，不是全局真值；
   - 免标定尺度 TTC（TTC_scale = h/ḣ）不经过本类，见 ttc 模块。
 """
@@ -46,7 +49,10 @@ class CameraConfig:
     def calibrate_from_ego_speed(
         self, ttc_scale: float, y_bottom: float, ego_speed_mps: float
     ) -> None:
-        """用 ego 速度 + 尺度 TTC 反解测距尺度 f·H（逐视频主入口）。
+        """用 ego 速度 + 尺度 TTC 反解测距尺度 f·H（**接口预留，当前无调用点**）。
+
+        实际逐视频标定走 examples/calibrate_video.py → calibration.estimate_ground_plane()，
+        其结果经 calibrate_scale() 落到本类；本方法保留为单次反解的对外接口。
 
         尺度 TTC 免标定可得：τ = Δt·s/Δs（s 为跟踪框高/宽）。
         对（近似）静止目标：D = ego_speed_mps · τ，
