@@ -291,7 +291,7 @@ pytest -q
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 
-CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 验证 README 主推的完整安装路径 `pip install -e .`（含 ultralytics）。
+CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 走 `pip install -e ".[dev]"`，验证含 ultralytics 的完整依赖解析。
 
 ---
 
