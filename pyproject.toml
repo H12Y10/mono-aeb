@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dfine = ["torch", "torchvision", "pillow"]
+dev = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/H12Y10/mono-aeb"
@@ -34,6 +35,9 @@ Issues = "https://github.com/H12Y10/mono-aeb/issues"
 
 [tool.setuptools.packages.find]
 include = ["aeb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 # vendored ByteTrack（MIT）的许可证原文随包分发，与 dist-info/licenses 下的副本并存，
 # 保证「源码旁边就有它自己的许可声明」，满足 MIT 的保留声明要求。

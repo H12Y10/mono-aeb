@@ -24,6 +24,11 @@ data/
 *.mp4
 out/
 
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
 # 二进制渲染产物（由 .md 重新生成，GitHub 原生渲染）
 *.pdf
 *.docx

@@ -271,6 +271,27 @@ python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov -
 
 ---
 
+## 开发与测试
+
+零数据测试套件：不需要视频、检测权重或网络，仅需核心依赖（numpy / scipy / opencv-python / lap）。
+
+```bash
+pip install -e ".[dev]"     # 或单独 pip install pytest
+pytest -q
+```
+
+| 测试 | 验证内容 |
+| --- | --- |
+| `tests/test_ttc_synthetic.py` | 合成接近场景：测距恢复（中位相对误差 < 10%）、TTC 双源、状态机四级升级单调 |
+| `tests/test_calibration_horizon_synthetic.py` | 联合标定恢复 `horizon_y`（真值 320 / 360 / 400 三组，容差 8 px） |
+| `tests/test_bytetrack_vendor.py` | vendored ByteTrack 不依赖 Cython 扩展即可运行（numpy shim、numpy≥1.24 别名补回、真实产出轨迹） |
+| `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
+| `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
+
+CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 验证 README 主推的完整安装路径 `pip install -e .`（含 ultralytics）。
+
+---
+
 ## 许可
 
 本项目代码以 **Apache-2.0** 许可发布，详见 [LICENSE](LICENSE)。
