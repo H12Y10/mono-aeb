@@ -1,5 +1,7 @@
 # mono-aeb
 
+[![CI](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml/badge.svg)](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml)
+
 检测器无关的单目 **AEB（自动紧急制动）/ FCW（前向碰撞预警）** 决策链：检测 → 跟踪 → In-Path 过滤 → 测距 → TTC → 风险决策。
 
 A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-path filtering → ranging → TTC → risk decision.
