@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    name: 核心链路测试（${{ matrix.os }} / py${{ matrix.python-version }}）
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # 只装「零数据 demo + 核心链路」所需依赖：ultralytics 会拉入 torch（~2GB），
+      # 而 --check / --demo / 测试套件都不需要它，故用 --no-deps 跳过。
+      # lap 在个别平台无 wheel，失败时按 README 回退 lapx。
+      - name: 安装核心依赖
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scipy opencv-python-headless pytest
+          pip install lap || pip install lapx
+          pip install -e . --no-deps
+
+      - name: 依赖自检
+        run: python examples/quickstart.py --check
+
+      - name: 零数据 demo（NORMAL → ATTENTION → FCW → AEB）
+        run: python examples/quickstart.py --demo
+
+      - name: pytest
+        run: pytest -q
+
+  full-install:
+    name: 完整安装路径（README 主推的 pip install -e .）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip install -e .（含 ultralytics）
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: 默认检测后端可导入
+        run: python -c "from aeb.detectors import YOLOv8Detector, COCO_TO_AEB; print('YOLOv8 后端 OK')"
+
+      - name: 依赖自检（检测依赖亦应就绪）
+        run: python examples/quickstart.py --check
+
+      - name: pytest
+        run: pytest -q
