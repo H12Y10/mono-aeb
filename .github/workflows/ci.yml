@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# 统一 UTF-8：示例脚本会输出中文，而 Windows runner 默认 cp1252，
+# 不加这个会让 print 直接抛 UnicodeEncodeError；顺带让日志可读。
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   core-tests:
     name: 核心链路测试（${{ matrix.os }} / py${{ matrix.python-version }}）

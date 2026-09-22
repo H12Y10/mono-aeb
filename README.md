@@ -80,6 +80,9 @@ pip install -e ".[dfine]"   # torch / torchvision / pillow
 `OSError: [WinError 126] ... c10.dll` 加载失败。装一次 [VC++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) 即可。
 （`--demo` 零数据演示不 import torch，无需此项。）
 
+非中文 locale 的 Windows（控制台代码页不是 UTF-8）下，示例脚本输出中文会抛 `UnicodeEncodeError`，
+先执行 `set PYTHONUTF8=1` 再运行即可；Linux/macOS 与中文 Windows 无此问题。
+
 ---
 
 ## 快速开始

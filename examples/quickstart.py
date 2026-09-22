@@ -183,7 +183,11 @@ def run_demo(args) -> int:
 
     if writer is not None:
         writer.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        # 仅在实际开过窗口时销毁。无 GUI 的 OpenCV 构建（opencv-python-headless，
+        # 常见于服务器 / Docker / CI）里 destroyAllWindows() 不是 no-op，而是抛
+        # cv2.error「The function is not implemented」，因此无头环境必须跳过。
+        cv2.destroyAllWindows()
     print(f"[quickstart] 完成，共 {args.frames} 帧"
           + (f"，视频已写入 {args.out}" if args.out else ""))
     return 0
