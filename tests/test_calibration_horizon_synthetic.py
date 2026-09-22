@@ -1,7 +1,5 @@
 """合成静止目标：验证联合标定能恢复 horizon_y（非默认 360）。
 
-移植自主项目 `02-代码/test_calibration_horizon_synthetic.py`。
-
 horizon_y 是决策相关量（在 ttc_distance 里不约掉），故严格断言；
 f·H 是辅助量（TTC 决策里约掉、只影响显示，且受 ByteTrack Kalman 平滑偏差），
 只做宽松 ballpark 校验（f·H 对远目标小 denom 的地平线误差极敏感）。

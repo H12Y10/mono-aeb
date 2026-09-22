@@ -1,6 +1,4 @@
 """导入链 / ROI 派生 / ByteTrack 封装冒烟测试（不跑检测，无需权重与视频）。
-
-移植自主项目 `02-代码/test_import.py`。
 """
 
 import numpy as np
