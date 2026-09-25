@@ -21,10 +21,10 @@ dependencies = [
     "scipy",
     "lap",
     "opencv-python",
-    "ultralytics",
 ]
 
 [project.optional-dependencies]
+yolo = ["ultralytics"]
 dfine = ["torch", "torchvision", "pillow"]
 dev = ["pytest"]
 

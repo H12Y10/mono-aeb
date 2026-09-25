@@ -6,7 +6,7 @@
 
 A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-path filtering → ranging → TTC → risk decision.
 
-核心优势是**免标定尺度 TTC**（只依赖目标的图像尺寸变化率，不依赖相机内参/畸变标定），以及**速度自适应的风险阈值**（AEB 触发点随车速平移）。检测器可插拔：默认后端 YOLOv8，可选高精度后端 D-FINE，二者实现同一个 `BaseDetector` 接口，决策链只消费 `[x1, y1, x2, y2, score, class]`。
+核心优势是**免标定尺度 TTC**（只依赖目标的图像尺寸变化率，不依赖相机内参/畸变标定），以及**速度自适应的风险阈值**（AEB 触发点随车速平移）。检测器可插拔：可选检测后端 YOLOv8（yolo extra）与高精度后端 D-FINE（dfine extra），二者实现同一个 `BaseDetector` 接口，决策链只消费 `[x1, y1, x2, y2, score, class]`。
 
 ---
 
@@ -49,7 +49,6 @@ pip install -e .
 | `numpy` / `scipy` | 数值计算 / Theil-Sen 拟合 | scipy 同时是 ByteTrack 的传递依赖 |
 | `opencv-python` | 图像读写、ROI、可视化 | |
 | `lap` | ByteTrack 匹配（线性指派） | 见下方说明 |
-| `ultralytics` | 默认检测后端 YOLOv8 | |
 
 **关于 `lap`**：`lap` 是 ByteTrack 匹配的线性指派求解器，个别平台缺少对应 wheel。此时可改用 `lapx`（提供同名的 `lapjv` 接口）：
 
@@ -131,7 +130,11 @@ python examples/demo_aeb.py --source 视频.mp4 --coco --out out.mp4
 
 ## 检测器后端
 
-### 默认：YOLOv8
+### YOLOv8（可选后端，`yolo` extra）
+
+```bash
+pip install -e ".[yolo]"    # ultralytics（AGPL-3.0）
+```
 
 ```python
 from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
@@ -293,7 +296,7 @@ pytest -q
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 
-CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 走 `pip install -e ".[dev]"`，验证含 ultralytics 的完整依赖解析。
+CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 走 `pip install -e ".[yolo,dev]"`，验证含可选检测后端（yolo extra）的完整依赖解析。
 
 ---
 
@@ -307,7 +310,7 @@ CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上
 | --- | --- | --- |
 | [ByteTrack](https://github.com/ifzhang/ByteTrack) | MIT | 多目标跟踪（已 vendored 最小子集于 `aeb/tracker/vendor/bytetrack/`，许可证原文随包分发） |
 | [D-FINE](https://github.com/Peterande/D-FINE) | Apache-2.0 | 可选高精度检测后端 |
-| [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | 默认检测后端 |
+| [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | 可选检测后端（yolo extra） |
 | [BDD100K](https://bdd-data.berkeley.edu/) | 仅学术 / 非商业、禁止再分发 | 训练数据（权重受限分发） |
 
 > ⚠️ **许可提示**：`ultralytics` 采用 AGPL-3.0，对衍生作品与网络服务场景存在 copyleft 要求。若你的分发场景需避免这些义务，可改用 Apache-2.0 许可的 D-FINE 作为检测后端（`--detector dfine`）。本仓库自身代码以 Apache-2.0 发布。
