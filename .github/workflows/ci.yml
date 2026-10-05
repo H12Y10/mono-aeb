@@ -29,7 +29,7 @@ jobs:
 
       # 只装「零数据 demo + 核心链路」所需依赖：检测后端是可选 extra（ultralytics → torch ~2GB），
       # --check / --demo / 测试套件都不需要，故不装；--no-deps 用于显式装 headless opencv 并回退 lapx。
-      # lap 在个别平台无 wheel，失败时按 README 回退 lapx。
+      # 缺少 lap wheel 时按 README 改装 lapx（其提供的模块名即 lap）；第 38 行即安装期替换。
       - name: 安装核心依赖
         shell: bash
         run: |
