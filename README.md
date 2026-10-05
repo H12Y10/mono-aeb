@@ -50,13 +50,13 @@ pip install -e .
 | `opencv-python` | 图像读写、ROI、可视化 | |
 | `lap` | ByteTrack 匹配（线性指派） | 见下方说明 |
 
-**关于 `lap`**：`lap` 是 ByteTrack 匹配的线性指派求解器，个别平台缺少对应 wheel。此时可改用 `lapx`（提供同名的 `lapjv` 接口）：
+**关于 `lap`**：`lap` 是 ByteTrack 匹配的线性指派求解器，若缺少对应平台/Python 的 `lap` wheel，可改装 `lapx` —— 它是 `lap` 的替代发行版，安装后提供的模块名就是 `lap`：
 
 ```bash
 pip install lapx
 ```
 
-代码已在 `aeb/tracker/vendor/bytetrack/yolox/tracker/matching.py` 中内置兜底（`import lap` 失败时自动回退到 `lapx`）。
+注意：本项目**不在代码里做回退**。`lap` 缺失时按上面的方式安装 `lapx` 即可（其提供的模块名即为 `lap`，无需改动任何代码）。
 
 ByteTrack 本身已作为**最小子集 vendored 进包内**（`aeb/tracker/vendor/bytetrack/`，MIT License），随 wheel 一起安装，因此 `pip install -e .` 与常规 `pip install` 都能直接使用，无需额外拉取上游仓库。若要改用外部/完整版 ByteTrack：
 
@@ -64,7 +64,7 @@ ByteTrack 本身已作为**最小子集 vendored 进包内**（`aeb/tracker/vend
 | --- | --- |
 | `BYTETRACK_ROOT` | ByteTrack 仓库根目录（内含 `yolox/tracker/`），覆盖包内 vendor 默认 |
 
-若 `pip install -e .` 因 `lap` 无对应 wheel 而中止，可先装 `lapx`，再跳过依赖解析安装本包：
+若 `pip install -e .` 因缺少 `lap` 的对应 wheel 而中止，可先装 `lapx`，再跳过依赖解析安装本包：
 
 ```bash
 pip install lapx

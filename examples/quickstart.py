@@ -34,7 +34,7 @@ CORE_DEPS = {
     "numpy": "numpy",
     "cv2": "opencv-python",
     "scipy": "scipy",
-    "lap": "lap（无对应平台 wheel 时可换 lapx）",
+    "lap": "lap（缺少对应 wheel 时可改装 lapx，其模块名即 lap）",
 }
 
 LEVEL_COLORS = {

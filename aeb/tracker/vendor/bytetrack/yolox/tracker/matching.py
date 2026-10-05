@@ -1,11 +1,7 @@
 import cv2
 import numpy as np
 import scipy
-
-try:
-    import lap
-except ImportError:  # lap 无对应平台 wheel 时可用 lapx 替代（提供同名 lapjv）
-    import lapx as lap
+import lap
 from scipy.spatial.distance import cdist
 
 from cython_bbox import bbox_overlaps as bbox_ious

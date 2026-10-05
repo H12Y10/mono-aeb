@@ -6,7 +6,7 @@
   1. `cython_bbox` C 扩展 → 纯 numpy shim（`aeb/tracker/byte_shims/cython_bbox.py`）；
   2. numpy>=1.24 删除的 `np.float` / `np.int` / `np.bool` 别名 → 运行时补回
      （`bytetrack._patch_numpy`）；
-  3. `import lap` 失败时回退 `lapx`（vendored `matching.py` 内）；
+  3. `lap` 缺失时以 `lapx` 发行版替代（其提供的模块名即为 `lap`，属安装期替换而非代码分支）；
   4. 上游 `yolox/__init__.py` 会连带导入 torch → 替换为空实现。
 
 本测试在 CI（无编译器、新 numpy）下真实驱动跟踪器，保证上述适配持续生效。
@@ -47,7 +47,7 @@ def test_numpy_aliases_are_restored():
 
 
 def test_tracks_are_produced_across_frames():
-    """连续帧驱动：匹配（lap/lapx）+ 卡尔曼滤波 + 轨迹生命周期全部真实跑通。"""
+    """连续帧驱动：匹配（`lap`）+ 卡尔曼滤波 + 轨迹生命周期全部真实跑通。"""
     trk = ByteTrackTracker(track_thresh=0.5, fps=30.0)
     frame = np.zeros((720, 1280, 3), dtype=np.uint8)
 
