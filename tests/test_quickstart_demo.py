@@ -21,14 +21,14 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 
 def test_dependency_check_passes():
     r = _run("--check")
-    assert r.returncode == 0, f"--check 退出码 {r.returncode}：\n{r.stdout}\n{r.stderr}"
-    assert "全部就绪" in r.stdout, f"--check 未报告核心依赖就绪：\n{r.stdout}"
+    assert r.returncode == 0, f"--check exited with {r.returncode}:\n{r.stdout}\n{r.stderr}"
+    assert "all set" in r.stdout, f"--check did not report core dependencies as ready:\n{r.stdout}"
 
 
 def test_demo_walks_the_full_risk_ladder():
     r = _run("--demo")
     out = r.stdout
-    assert r.returncode == 0, f"--demo 退出码 {r.returncode}：\n{out}\n{r.stderr}"
+    assert r.returncode == 0, f"--demo exited with {r.returncode}:\n{out}\n{r.stderr}"
     for token in ("NORMAL", "ATTENTION", "FCW", "AEB"):
-        assert token in out, f"demo 输出缺少等级 {token}：\n{out}"
-    assert "完成，共" in out, f"demo 未正常结束：\n{out}"
+        assert token in out, f"demo output is missing level {token}:\n{out}"
+    assert "[quickstart] done" in out, f"demo did not finish normally:\n{out}"

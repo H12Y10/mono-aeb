@@ -46,7 +46,7 @@ def _ensure_importable():
     root = Path(_BYTETRACK_ROOT)
     if not root.exists():
         raise RuntimeError(
-            f"ByteTrack 源码不可用（{root} 不存在）：包内 vendor 副本缺失时请重装本包；"
+            f"ByteTrack source is unavailable ({root} not found): the in-package vendored copy is missing; reinstall this package; "
             "若设置了 BYTETRACK_ROOT，请确认它指向 ByteTrack 仓库根目录（内含 yolox/tracker/）")
     for p in (_SHIM_DIR, root):
         if str(p) not in sys.path:

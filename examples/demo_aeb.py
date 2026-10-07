@@ -42,7 +42,7 @@ def iter_source(source: str):
         for ext in ("*.jpg", "*.jpeg", "*.png"):
             paths += sorted(p.glob(ext))
         if not paths:
-            raise SystemExit(f"目录里没有图片：{source}")
+            raise SystemExit(f"no images in directory: {source}")
         for fp in paths:
             img = cv2.imread(str(fp))
             if img is not None:
@@ -51,7 +51,7 @@ def iter_source(source: str):
 
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        raise SystemExit(f"打不开视频：{source}")
+        raise SystemExit(f"cannot open video: {source}")
     while True:
         ok, img = cap.read()
         if not ok:
@@ -131,9 +131,9 @@ def main():
         det = YOLOv8Detector(args.weights, conf=args.conf, device=args.device,
                              class_map=class_map)
     pipe = AEBPipeline(cfg, det)
-    print(f"[demo] 自车速度 = {cfg.ego_speed_mps:.1f} m/s "
+    print(f"[demo] ego speed = {cfg.ego_speed_mps:.1f} m/s "
           f"({cfg.ego_speed_mps*3.6:.0f} km/h)  "
-          f"AEB阈值 = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s")
+          f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s")
 
     writer = None
     frame_idx = 0
@@ -160,7 +160,7 @@ def main():
     if writer is not None:
         writer.release()
     cv2.destroyAllWindows()
-    print(f"[demo] 完成，共 {frame_idx} 帧")
+    print(f"[demo] done, {frame_idx} frames")
 
 
 if __name__ == "__main__":

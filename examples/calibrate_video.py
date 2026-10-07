@@ -41,11 +41,11 @@ def main():
     elif args.video:
         path = Path(args.video)
     else:
-        raise SystemExit("需要 --stem 或 --video")
+        raise SystemExit("either --stem or --video is required")
 
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
-        raise SystemExit(f"打不开视频 {path}")
+        raise SystemExit(f"cannot open video {path}")
     fps = cap.get(cv2.CAP_PROP_FPS) or args.fps
 
     camera = CameraConfig()  # horizon=360 默认；focal_px/cam_height_m 是待标定的占位
@@ -73,18 +73,18 @@ def main():
     )
     cap.release()
 
-    print(f"视频: {path.stem}")
-    print(f"采样: {n_samples} 个 (跨 {n_tracks} 条轨迹)")
+    print(f"video: {path.stem}")
+    print(f"samples: {n_samples} (across {n_tracks} tracks)")
     if fh is None:
-        print("标定失败：静止目标样本不足（可增大 --max-frames 或换片段）")
+        print("calibration failed: not enough static-target samples (increase --max-frames or try another clip)")
         return
-    print(f"标定前 f·H = {camera.focal_height:.1f}（占位 1100×1.5）  "
-          f"horizon = {camera.horizon_y:.0f}（默认）")
-    print(f"标定后 f·H = {fh:.1f}  horizon = {horizon:.1f}")
+    print(f"before calibration: f·H = {camera.focal_height:.1f} (placeholder 1100x1.5)  "
+          f"horizon = {camera.horizon_y:.0f} (default)")
+    print(f"after calibration:  f·H = {fh:.1f}  horizon = {horizon:.1f}")
     camera.calibrate_scale(fh)
     camera.calibrate_horizon(horizon)
     print(f"  → focal_px = {camera.focal_px:.1f}"
-          f"（cam_height_m 保持 {camera.cam_height_m} m）")
+          f" (cam_height_m kept at {camera.cam_height_m} m)")
 
 
 if __name__ == "__main__":

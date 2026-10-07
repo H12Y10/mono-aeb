@@ -140,7 +140,7 @@ def draw(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
 def run_demo(args) -> int:
     missing = missing_deps(need_detector=False)
     if missing:
-        print("[quickstart] 缺少依赖，请先安装：")
+        print("[quickstart] missing dependencies, install them first:")
         for m in missing:
             print(f"  - {m}")
         return 1
@@ -149,9 +149,9 @@ def run_demo(args) -> int:
     det = SyntheticDetector(fps=cfg.fps, v_close=args.v_close)
     pipe = AEBPipeline(cfg, det)
 
-    print(f"[quickstart] 自车速度 = {cfg.ego_speed_mps:.0f} m/s，"
-          f"AEB 阈值 = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s")
-    print("[quickstart] 目标以 %.0f m/s 匀速逼近，逐帧打印状态变化："
+    print(f"[quickstart] ego speed = {cfg.ego_speed_mps:.0f} m/s, "
+          f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s")
+    print("[quickstart] target closing at a constant %.0f m/s; printing the risk state per frame:"
           % args.v_close)
 
     writer = None
@@ -188,8 +188,8 @@ def run_demo(args) -> int:
         # 常见于服务器 / Docker / CI）里 destroyAllWindows() 不是 no-op，而是抛
         # cv2.error「The function is not implemented」，因此无头环境必须跳过。
         cv2.destroyAllWindows()
-    print(f"[quickstart] 完成，共 {args.frames} 帧"
-          + (f"，视频已写入 {args.out}" if args.out else ""))
+    print(f"[quickstart] done, {args.frames} frames"
+          + (f", video written to {args.out}" if args.out else ""))
     return 0
 
 
@@ -211,10 +211,10 @@ def main():
     if args.check:
         core = missing_deps(need_detector=False)
         det = missing_deps(need_detector=True)
-        print("[quickstart] 核心依赖（--demo 需要）：")
-        print("  " + ("全部就绪" if not core else "\n  ".join(core)))
-        print("[quickstart] 检测依赖（真实视频 examples/demo_aeb.py 需要）：")
-        print("  " + ("全部就绪" if not det else "\n  ".join(det)))
+        print("[quickstart] core dependencies (needed by --demo):")
+        print("  " + ("all set" if not core else "\n  ".join(core)))
+        print("[quickstart] detector dependencies (needed by examples/demo_aeb.py on real video):")
+        print("  " + ("all set" if not det else "\n  ".join(det)))
         return 0 if not core else 1
 
     return run_demo(args)

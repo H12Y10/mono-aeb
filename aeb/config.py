@@ -43,7 +43,7 @@ class CameraConfig:
         """逐视频设置测距尺度 f·H，落到 focal_px 上（cam_height_m 保持物理含义）。"""
         fh = float(focal_height)
         if fh <= 0:
-            raise ValueError(f"focal_height 必须为正，得到 {fh}")
+            raise ValueError(f"focal_height must be positive, got {fh}")
         self.focal_px = fh / self.cam_height_m
 
     def calibrate_from_ego_speed(
@@ -62,7 +62,7 @@ class CameraConfig:
         denom = float(y_bottom) - self.horizon_y
         if ttc_scale <= 0 or denom <= 0:
             raise ValueError(
-                f"非法反解输入：ttc_scale={ttc_scale}, y_bottom-horizon={denom}"
+                f"invalid inverse-solve input: ttc_scale={ttc_scale}, y_bottom-horizon={denom}"
             )
         d = float(ego_speed_mps) * ttc_scale
         self.calibrate_scale(d * denom)
@@ -86,13 +86,13 @@ class CameraConfig:
         xs = [float(y) - self.horizon_y for y in y_bottoms]
         ws = [float(w) for w in widths_px]
         if len(xs) != len(ws) or len(xs) == 0:
-            raise ValueError("widths_px 与 y_bottoms 需等长且非空")
+            raise ValueError("widths_px and y_bottoms must have equal length and be non-empty")
         if any(x <= 0 for x in xs) or any(w <= 0 for w in ws):
-            raise ValueError("y_bottom 需在 horizon 之下，宽度需为正")
+            raise ValueError("y_bottom must be below horizon and widths must be positive")
         # 过原点最小二乘：slope = Σ(w·x) / Σ(x²)
         slope = sum(w * x for w, x in zip(ws, xs)) / sum(x * x for x in xs)
         if slope <= 0:
-            raise ValueError("拟合斜率为非正，无法标定")
+            raise ValueError("fitted slope is non-positive; cannot calibrate")
         self.cam_height_m = float(real_width_m) / slope
 
 

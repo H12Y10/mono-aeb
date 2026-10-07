@@ -43,7 +43,7 @@ def _resolve_device(device: str):
         device = f"cuda:{device}"
     d = torch.device(device)
     if d.type == "cuda" and not torch.cuda.is_available():
-        print("[dfine] CUDA 不可用，退回 CPU")
+        print("[dfine] CUDA unavailable, falling back to CPU")
         d = torch.device("cpu")
     return d
 
@@ -70,9 +70,9 @@ class DFineDetector(BaseDetector):
         config = Path(config) if config else (
             Path(_DFINE_ROOT) / "configs" / "dfine" / "dfine_hgnetv2_m_aeb.yml")
         if not config.exists():
-            raise FileNotFoundError(f"D-FINE 配置不存在：{config}")
+            raise FileNotFoundError(f"D-FINE config not found: {config}")
         if not Path(weights).exists():
-            raise FileNotFoundError(f"D-FINE 权重不存在：{weights}")
+            raise FileNotFoundError(f"D-FINE weights not found: {weights}")
 
         cfg = YAMLConfig(str(config), resume=str(weights))
         # 用训练权重整体加载，禁掉 HGNetv2 预训练 backbone（避免重复加载）

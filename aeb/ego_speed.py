@@ -78,6 +78,6 @@ if __name__ == "__main__":
     for path in sys.argv[1:]:
         v = load_ego_speed(path)
         if v is None:
-            print(f"{path}: 无 info 数据")
+            print(f"{path}: no info data")
         else:
             print(f"{path}: {v:.2f} m/s = {v*3.6:.1f} km/h")

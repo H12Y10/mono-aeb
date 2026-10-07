@@ -2,203 +2,200 @@
 
 [![CI](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml/badge.svg)](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml)
 
-检测器无关的单目 **AEB（自动紧急制动）/ FCW（前向碰撞预警）** 决策链：检测 → 跟踪 → In-Path 过滤 → 测距 → TTC → 风险决策。
+A detector-agnostic monocular **AEB (Autonomous Emergency Braking) / FCW (Forward Collision Warning)** decision chain: detection → tracking → in-path filtering → ranging → TTC → risk decision.
 
-A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-path filtering → ranging → TTC → risk decision.
+The two core strengths are **calibration-free scale TTC** — which relies only on the rate of change of a target's image size and does not depend on camera intrinsics or distortion calibration — and **speed-adaptive risk thresholds**, where the AEB trigger point shifts with ego speed. The detector is pluggable: the YOLOv8 backend (`yolo` extra) and the high-accuracy D-FINE backend (`dfine` extra) both implement the same `BaseDetector` interface, and the decision chain consumes only `[x1, y1, x2, y2, score, class]`.
 
-核心优势是**免标定尺度 TTC**（只依赖目标的图像尺寸变化率，不依赖相机内参/畸变标定），以及**速度自适应的风险阈值**（AEB 触发点随车速平移）。检测器可插拔：可选检测后端 YOLOv8（yolo extra）与高精度后端 D-FINE（dfine extra），二者实现同一个 `BaseDetector` 接口，决策链只消费 `[x1, y1, x2, y2, score, class]`。
-
----
-
-## 特性
-
-- **检测器无关契约**：决策链与具体检测器解耦，7 类 AEB 目标（person / rider / car / truck / bus / bike / motor）。
-- **免标定尺度 TTC**：`τ = s / ṡ`，对 `(t, 1/s)` 做 Theil-Sen 稳健拟合，无需相机标定。
-- **距离 TTC + 融合**：地面平面测距反推接近速度，与尺度 TTC 取最小值，`persist_k` 帧保持抑制抖动。
-- **速度自适应阈值**：`τ_AEB(v) = t_react + v / (2·a_max)`，FCW / ATTENTION 在此之上加固定前置余量，整条决策梯度随车速平移。
-- **逐视频自标定**：用 GPS ego 速度 + 免标定尺度 TTC 联合反解测距尺度 `f·H` 与地平线 `horizon_y`，消除 BDD100K 逐视频相机参数不一致的问题。
-- **内置 ByteTrack**：跟踪器已 vendored 进包内（`aeb/tracker/vendor/bytetrack/`），随 wheel 一起分发，无需额外安装。
-
-## 决策链
-
-```
-视频帧 → 检测(YOLOv8 / D-FINE)
-       → 跟踪(ByteTrack)
-       → In-Path 过滤(固定梯形 ROI，自车路径走廊投影)
-       → 测距(地面平面模型，D = f·H / (y_bottom − horizon))
-       → TTC(尺度 τ 与距离 τ 融合，取 min)
-       → 决策(状态机 NORMAL → ATTENTION → FCW → AEB_WARNING)
-```
-
-风险状态机仅在目标位于自车路径走廊内（`in_path = True`）时参与升级；路径外目标保持 `NORMAL`，避免旁车道车辆误触发。
+> 中文说明见 [README.zh-CN.md](README.zh-CN.md)。
 
 ---
 
-## 安装
+## Features
 
-需要 Python ≥ 3.10。
+- **Detector-agnostic contract** — the decision chain is decoupled from any specific detector and works with the 7 AEB classes (person / rider / car / truck / bus / bike / motor).
+- **Calibration-free scale TTC** — `τ = s / ṡ`, estimated via a Theil–Sen robust fit of `(t, 1/s)`; no camera calibration required.
+- **Distance TTC + fusion** — a ground-plane ranging model recovers closing speed, fused with scale TTC by taking the minimum, with a `persist_k` frame hold to suppress jitter.
+- **Speed-adaptive thresholds** — `τ_AEB(v) = t_react + v / (2·a_max)`, with fixed lead margins for FCW / ATTENTION on top; the whole decision gradient shifts with ego speed.
+- **Per-video self-calibration** — jointly estimates the ranging scale `f·H` and the horizon `horizon_y` from GPS ego speed + calibration-free scale TTC, removing the per-video camera-parameter inconsistency in BDD100K.
+- **Bundled ByteTrack** — the tracker is vendored into the package (`aeb/tracker/vendor/bytetrack/`) and distributed with the wheel; no separate installation needed.
+
+## Pipeline
+
+```
+video frame → detection (YOLOv8 / D-FINE)
+            → tracking (ByteTrack)
+            → in-path filtering (fixed trapezoid ROI, ego-path corridor projection)
+            → ranging (ground-plane model, D = f·H / (y_bottom − horizon))
+            → TTC (scale τ and distance τ fused via min)
+            → decision (state machine NORMAL → ATTENTION → FCW → AEB_WARNING)
+```
+
+The risk state machine only escalates while a target is inside the ego-path corridor (`in_path = True`); targets outside the path stay at `NORMAL`, avoiding false triggers from adjacent-lane vehicles.
+
+---
+
+## Installation
+
+Requires Python ≥ 3.10.
 
 ```bash
 pip install -e .
 ```
 
-运行依赖：
+Runtime dependencies:
 
-| 依赖 | 用途 | 说明 |
+| Dependency | Purpose | Notes |
 | --- | --- | --- |
-| `numpy` / `scipy` | 数值计算 / Theil-Sen 拟合 | scipy 同时是 ByteTrack 的传递依赖 |
-| `opencv-python` | 图像读写、ROI、可视化 | |
-| `lap` | ByteTrack 匹配（线性指派） | 见下方说明 |
+| `numpy` / `scipy` | numeric computation / Theil–Sen fit | `scipy` is also a transitive dependency of ByteTrack |
+| `opencv-python` | image I/O, ROI, visualization | |
+| `lap` | ByteTrack matching (linear assignment) | see below |
 
-**关于 `lap`**：`lap` 是 ByteTrack 匹配的线性指派求解器，若缺少对应平台/Python 的 `lap` wheel，可改装 `lapx` —— 它是 `lap` 的替代发行版，安装后提供的模块名就是 `lap`：
+**About `lap`**: `lap` is the linear-assignment solver used by ByteTrack matching. If no `lap` wheel exists for your platform/Python, install `lapx` instead — it is an alternative distribution of `lap` that ships a module named `lap`:
 
 ```bash
 pip install lapx
 ```
 
-注意：本项目**不在代码里做回退**。`lap` 缺失时按上面的方式安装 `lapx` 即可（其提供的模块名即为 `lap`，无需改动任何代码）。
+Note: this project does **not** fall back in code. When `lap` is missing, installing `lapx` as above is enough (it provides the module name `lap`, so no code changes are needed).
 
-ByteTrack 本身已作为**最小子集 vendored 进包内**（`aeb/tracker/vendor/bytetrack/`，MIT License），随 wheel 一起安装，因此 `pip install -e .` 与常规 `pip install` 都能直接使用，无需额外拉取上游仓库。若要改用外部/完整版 ByteTrack：
+ByteTrack itself is vendored as a **minimal subset** (`aeb/tracker/vendor/bytetrack/`, MIT License) and installed with the wheel, so both `pip install -e .` and a regular `pip install` work without fetching the upstream repository. To use an external/full ByteTrack instead:
 
-| 环境变量 | 含义 |
+| Environment variable | Meaning |
 | --- | --- |
-| `BYTETRACK_ROOT` | ByteTrack 仓库根目录（内含 `yolox/tracker/`），覆盖包内 vendor 默认 |
+| `BYTETRACK_ROOT` | ByteTrack repository root (containing `yolox/tracker/`), overriding the bundled vendor default |
 
-若 `pip install -e .` 因缺少 `lap` 的对应 wheel 而中止，可先装 `lapx`，再跳过依赖解析安装本包：
+If `pip install -e .` aborts because no `lap` wheel is available for your platform, install `lapx` first, then install this package while skipping dependency resolution:
 
 ```bash
 pip install lapx
 pip install -e . --no-deps
 ```
 
-**可选高精度后端 D-FINE** 需额外安装 PyTorch 生态：
+**Optional high-accuracy backend D-FINE** additionally requires the PyTorch ecosystem:
 
 ```bash
 pip install -e ".[dfine]"   # torch / torchvision / pillow
 ```
 
-**关于 Windows**：torch 依赖 Microsoft Visual C++ 运行库，个别机器（尤其机房 / 纯净环境）未安装时会出现
-`OSError: [WinError 126] ... c10.dll` 加载失败。装一次 [VC++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) 即可。
-（`--demo` 零数据演示不 import torch，无需此项。）
+**About Windows**: `torch` requires the Microsoft Visual C++ runtime; on some machines (especially lab/clean-room environments) its absence shows up as `OSError: [WinError 126] ... c10.dll` failing to load. Installing the [VC++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) once resolves it. (The `--demo` zero-data demo does not import torch, so it does not need this.)
 
-非中文 locale 的 Windows（控制台代码页不是 UTF-8）下，示例脚本输出中文会抛 `UnicodeEncodeError`，
-先执行 `set PYTHONUTF8=1` 再运行即可；Linux/macOS 与中文 Windows 无此问题。
+On non-Chinese Windows locales (console codepage not UTF-8), the example scripts print Chinese and throw `UnicodeEncodeError`; run `set PYTHONUTF8=1` first. Linux/macOS and Chinese Windows are unaffected.
 
 ---
 
-## 快速开始
+## Quick start
 
-### 零数据 demo（无需视频 / 权重）
+### Zero-data demo (no video / no weights)
 
 ```bash
 python examples/quickstart.py --demo
 ```
 
-该命令用合成检测器生成一个匀速逼近的目标，跑通「跟踪 → 测距 → TTC → 决策」全链，逐帧打印状态变化：
+This command drives a synthetic detector that generates a target closing at constant speed, and runs the full detection → tracking → ranging → TTC → decision chain, printing state changes frame by frame:
 
 ```
-[quickstart] 自车速度 = 12 m/s，AEB 阈值 = 1.37s
-[quickstart] 目标以 10 m/s 匀速逼近，逐帧打印状态变化：
+[quickstart] ego speed = 12 m/s, AEB threshold = 1.37s
+[quickstart] target closing at a constant 10 m/s; printing the risk state per frame:
   frame   0: NORMAL     d= 45.0m  ttc=  infs
   frame  39: ATTENTION  d= 32.0m  ttc= 3.36s
   frame  69: FCW        d= 22.0m  ttc= 2.36s
   frame  99: AEB        d= 12.1m  ttc= 1.36s
-[quickstart] 完成，共 120 帧
+[quickstart] done, 120 frames
 ```
 
-可用参数：`--out 视频.mp4`（输出可视化视频）、`--show`（实时窗口）、`--frames` / `--fps` / `--v-close`。`--demo` 模式**不需要** `ultralytics` / `torch`，仅依赖 numpy / scipy / opencv-python / lap。
+Available options: `--out video.mp4` (write a visualization video), `--show` (live window), `--frames` / `--fps` / `--v-close`. `--demo` mode does **not** require `ultralytics` / `torch`; it depends only on numpy / scipy / opencv-python / lap.
 
-依赖自检：
+Dependency self-check:
 
 ```bash
 python examples/quickstart.py --check
 ```
 
-### 真实视频
+### Real video
 
 ```bash
-python examples/demo_aeb.py --source 视频.mp4 --coco --out out.mp4
+python examples/demo_aeb.py --source video.mp4 --coco --out out.mp4
 ```
 
-- `--coco`：权重为 COCO 预训练（如 `yolov8n.pt`）时做 COCO → AEB 7 类映射；使用 AEB 精调权重时不加该参数。
-- `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。
-- `--detector dfine`：切换到 D-FINE 后端（见下）。
+- `--coco`: maps COCO classes to the 7 AEB classes when using COCO-pretrained weights (e.g. `yolov8n.pt`); omit it when using AEB-finetuned weights.
+- `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable.
+- `--detector dfine`: switch to the D-FINE backend (see below).
 
-也可传入图片目录 `--source ./frames_dir`。
+You may also pass an image directory via `--source ./frames_dir`.
 
 ---
 
-## 检测器后端
+## Detector backends
 
-### YOLOv8（可选后端，`yolo` extra）
+### YOLOv8 (optional backend, `yolo` extra)
 
 ```bash
-pip install -e ".[yolo]"    # ultralytics（AGPL-3.0）
+pip install -e ".[yolo]"    # ultralytics (AGPL-3.0)
 ```
 
 ```python
 from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
 
 det = YOLOv8Detector("yolov8n.pt", conf=0.25, device="0",
-                     class_map=COCO_TO_AEB)  # 精调权重则 class_map=None
+                     class_map=COCO_TO_AEB)  # class_map=None for finetuned weights
 ```
 
-### 可选高精度后端：D-FINE
+### Optional high-accuracy backend: D-FINE
 
-D-FINE 依赖其上游仓库，通过环境变量定位，避免硬编码本地路径：
+D-FINE depends on its upstream repository, located via environment variables to avoid hardcoding local paths:
 
-| 环境变量 | 含义 |
+| Environment variable | Meaning |
 | --- | --- |
-| `DFINE_ROOT` | D-FINE 上游仓库根目录（内含 `src/`、`configs/`） |
-| `MONO_AEB_DFINE_WEIGHTS` | 微调权重路径（`.pth`） |
+| `DFINE_ROOT` | D-FINE upstream repository root (containing `src/`, `configs/`) |
+| `MONO_AEB_DFINE_WEIGHTS` | path to finetuned weights (`.pth`) |
 
 ```bash
 export DFINE_ROOT=/path/to/D-FINE
 export MONO_AEB_DFINE_WEIGHTS=/path/to/best_stg1.pth
-python examples/demo_aeb.py --source 视频.mp4 --detector dfine
+python examples/demo_aeb.py --source video.mp4 --detector dfine
 ```
 
-也可在代码中直接传参：
+Or pass the arguments directly in code:
 
 ```python
 from aeb.detectors import DFineDetector
-det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_hgnetv2_m_aeb.yml
+det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfine_hgnetv2_m_aeb.yml
 ```
 
-> ⚠️ **注意**：D-FINE 的微调权重基于 BDD100K 训练，受该数据许可约束（见下），不随本仓库公开。
+> ⚠️ **Note**: D-FINE's finetuned weights are trained on BDD100K and are subject to that dataset's license (see below); they are not distributed with this repository.
 
 ---
 
-## 权重与数据
+## Weights & data
 
-> ⚠️ **合规提示**：本仓库不包含任何模型权重与 BDD100K 原始视频/标注。
+> ⚠️ **Compliance note**: this repository does not contain any model weights or BDD100K videos/annotations.
 
-- **COCO 预训练 YOLOv8 权重**（如 `yolov8n.pt`）由 ultralytics 提供，按 ultralytics 的许可获取。
-- **AEB 精调权重**（YOLOv8 或 D-FINE）基于 BDD100K 微调，而 BDD100K 许可为「仅学术 / 非商业使用、禁止再分发原始数据」。因此这些权重不随本仓库公开，走受限分发（申请获取）。需要者在取得合法数据与许可后，可用本仓库的训练配置自行复现。
+- **COCO-pretrained YOLOv8 weights** (e.g. `yolov8n.pt`) are provided by ultralytics and obtained under ultralytics' license.
+- **AEB-finetuned weights** (YOLOv8 or D-FINE) are finetuned on BDD100K, whose license is "academic/non-commercial use only, no redistribution of raw data". These weights are therefore not published here; they are distributed on a restricted basis (on request). Anyone with legitimate data and license access can reproduce them with this repository's training configuration.
 
 ---
 
-## 项目结构
+## Project structure
 
 ```
 mono-aeb/
 ├── aeb/
-│   ├── config.py           # 相机 / 自车路径 / 风险阈值 / 检测跟踪参数
-│   ├── types.py            # Detection / Track / RiskFeature / RiskLevel 契约
-│   ├── pipeline.py         # AEBPipeline 主链路
-│   ├── calibration.py      # 逐视频自标定（f·H 与 horizon 联合反解）
-│   ├── ego_speed.py        # 从 BDD100K info/*.json 读 GPS 速度
+│   ├── config.py           # camera / ego-path / risk thresholds / detection & tracking params
+│   ├── types.py            # Detection / Track / RiskFeature / RiskLevel contracts
+│   ├── pipeline.py         # AEBPipeline main chain
+│   ├── calibration.py      # per-video self-calibration (joint f·H & horizon estimation)
+│   ├── ego_speed.py        # GPS speed from BDD100K info/*.json
 │   ├── detectors/          # BaseDetector + YOLOv8 + D-FINE
-│   ├── tracker/            # ByteTrack 适配 + cython_bbox numpy shim
-│   │   └── vendor/bytetrack/   # vendored ByteTrack（MIT，最小子集，随包分发）
-│   ├── distance/           # 地面平面测距
-│   ├── ttc/                # 尺度 TTC / 距离 TTC / 融合 / 轨迹历史
-│   ├── in_path/            # 固定梯形 ROI（自车路径走廊）
-│   └── decision/           # 风险状态机
+│   ├── tracker/            # ByteTrack adapter + cython_bbox numpy shim
+│   │   └── vendor/bytetrack/   # vendored ByteTrack (MIT, minimal subset, shipped with wheel)
+│   ├── distance/           # ground-plane ranging
+│   ├── ttc/                # scale TTC / distance TTC / fusion / track history
+│   ├── in_path/            # fixed trapezoid ROI (ego-path corridor)
+│   └── decision/           # risk state machine
 ├── examples/
-│   ├── quickstart.py       # 一键 demo（--demo / --check）
-│   ├── demo_aeb.py         # 真实视频离线 demo
-│   └── calibrate_video.py  # 逐视频自标定 CLI
+│   ├── quickstart.py       # one-shot demo (--demo / --check)
+│   ├── demo_aeb.py         # offline real-video demo
+│   └── calibrate_video.py  # per-video self-calibration CLI
 ├── pyproject.toml
 ├── LICENSE
 └── README.md
@@ -206,111 +203,111 @@ mono-aeb/
 
 ---
 
-## 核心原理
+## Core principles
 
-### 测距（地面平面模型）
+### Ranging (ground-plane model)
 
-假设路面为地平面，相机离地高度 `H`、焦距 `f`（二者仅以乘积 `f·H` 进入测距，存在尺度简并）：
+Assuming a flat ground plane with camera height `H` and focal length `f` (which enter ranging only through their product `f·H`, a scale degeneracy):
 
 $$
 D = \frac{f \cdot H}{y_{bottom} - y_{horizon}}
 $$
 
-`f·H` 与 `horizon_y` 随视频标定（见下），不依赖全局内参。
+`f·H` and `horizon_y` are calibrated per video (see below), not from global intrinsics.
 
-### 免标定尺度 TTC
+### Calibration-free scale TTC
 
-对目标的图像尺寸 `s`（框高或框宽），其随时间的变化率与接近速度相关，不依赖相机标定：
+For a target's image size `s` (box height or width), its rate of change is related to closing speed, independent of camera calibration:
 
 $$
 \tau_{scale} = \frac{s}{\dot{s}}
 $$
 
-实现上对 `(t, 1/s)` 做 Theil-Sen 稳健线性拟合，得斜率 `b`，则 `τ_scale = −1 / (b · s_now)`。Theil-Sen 取成对斜率的中位数，崩溃点约 `29%`（`1 − 1/√2`），对显著比例的离群点稳健，优于崩溃点为 `0` 的普通最小二乘。
+In implementation, a Theil–Sen robust linear fit is applied to `(t, 1/s)`, yielding slope `b`, so `τ_scale = −1 / (b · s_now)`. Theil–Sen takes the median of pairwise slopes and has a breakdown point of about `29%` (`1 − 1/√2`), robust to a significant fraction of outliers — better than ordinary least squares, whose breakdown point is `0`.
 
-### 距离 TTC 与融合
+### Distance TTC and fusion
 
-由测距序列 `(t, D)` 拟合接近速度 `v_close = −slope`，`τ_distance = D / v_close`。二者融合取更保守者：
+From the ranging sequence `(t, D)`, fit the closing speed `v_close = −slope`, then `τ_distance = D / v_close`. The two sources are fused by taking the more conservative one:
 
 $$
 \tau_{fused} = \min(\tau_{scale}, \tau_{distance})
 $$
 
-并加 `persist_k` 帧保持，抑制单帧抖动。
+with a `persist_k` frame hold to suppress single-frame jitter.
 
-### 风险状态机
+### Risk state machine
 
 ```
 NORMAL(0) → ATTENTION(1) → FCW(2) → AEB_WARNING(3)
 ```
 
-AEB 触发阈值随自车速度自适应（`t_react` 反应时间、`a_max` 紧急制动最大减速度）：
+The AEB trigger threshold adapts to ego speed (`t_react` reaction time, `a_max` emergency-braking max deceleration):
 
 $$
 \tau_{AEB}(v) = t_{react} + \frac{v}{2 \cdot a_{max}}
 $$
 
-FCW / ATTENTION 在此之上加固定前置余量（默认 `+1.0s` / `+2.0s`）。升级立即、降级带迟滞（`hysteresis`），避免状态在阈值附近振荡。所需减速度（**预留，当前未接入状态机决策**）：
+FCW / ATTENTION add fixed lead margins on top (defaults `+1.0s` / `+2.0s`). Escalation is immediate; de-escalation has hysteresis to avoid oscillation around thresholds. Required deceleration (**reserved, not currently wired into the state machine**):
 
 $$
 a_{req} = \frac{v_{close}^2}{2 \cdot (D - d_{safe})}
 $$
 
-默认参数见 `aeb/config.py`（`t_react=0.5`、`a_max=6.86 m/s²`、`d_safe=5.0 m`、`history_len=10`、`persist_k=3`、`fps=30`）。
+Defaults are in `aeb/config.py` (`t_react=0.5`, `a_max=6.86 m/s²`, `d_safe=5.0 m`, `history_len=10`, `persist_k=3`, `fps=30`).
 
 ---
 
-## 逐视频标定
+## Per-video calibration
 
-BDD100K 由众包采集，相机逐视频不同，无统一内参。本仓库提供两种标定：
+BDD100K is crowdsourced, so cameras differ per video and there are no unified intrinsics. This repository provides two calibrations:
 
-1. **ego 速度 + 尺度 TTC**（主入口）：对近似静止目标 `D = v_ego · τ_scale`，再对 `(1/D, y_bottom)` 做 Theil-Sen 直线拟合，一次同时解出斜率 `f·H` 与截距 `horizon_y`（`aeb/calibration.py: estimate_ground_plane`）。
-2. **已知目标宽度（预留）**：`CameraConfig.calibrate_from_known_width()`（当前无调用点，仅作接口预留），由像素宽随 `(y_bottom − horizon)` 的变化反解相机高度。
+1. **Ego speed + scale TTC** (primary entry point): for approximately stationary targets `D = v_ego · τ_scale`, then a Theil–Sen line fit over `(1/D, y_bottom)` jointly solves the slope `f·H` and the intercept `horizon_y` (`aeb/calibration.py: estimate_ground_plane`).
+2. **Known target width (reserved)**: `CameraConfig.calibrate_from_known_width()` (currently no call site, kept as a reserved interface) recovers camera height from how pixel width changes with `(y_bottom − horizon)`.
 
-CLI：
+CLI:
 
 ```bash
 python examples/calibrate_video.py --stem 0571873b-faf718b2
-# 或
+# or
 python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
 ```
 
-`--stem` 模式从 `BDD100K_VIDEO_DIR` 环境变量定位视频目录，缺省为当前目录。
+`--stem` mode locates the video directory via the `BDD100K_VIDEO_DIR` environment variable (defaults to the current directory).
 
 ---
 
-## 开发与测试
+## Development & testing
 
-零数据测试套件：不需要视频、检测权重或网络，仅需核心依赖（numpy / scipy / opencv-python / lap）。
+Zero-data test suite: no video, detection weights, or network needed — only the core dependencies (numpy / scipy / opencv-python / lap).
 
 ```bash
-pip install -e ".[dev]"     # 或单独 pip install pytest
+pip install -e ".[dev]"     # or just pip install pytest
 pytest -q
 ```
 
-| 测试 | 验证内容 |
+| Test | Verifies |
 | --- | --- |
-| `tests/test_ttc_synthetic.py` | 合成接近场景：测距恢复（中位相对误差 < 10%）、TTC 双源、状态机四级升级单调 |
-| `tests/test_calibration_horizon_synthetic.py` | 联合标定恢复 `horizon_y`（真值 320 / 360 / 400 三组，容差 8 px） |
-| `tests/test_bytetrack_vendor.py` | vendored ByteTrack 不依赖 Cython 扩展即可运行（numpy shim、numpy≥1.24 别名补回、真实产出轨迹） |
-| `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
-| `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
+| `tests/test_ttc_synthetic.py` | synthetic closing scenarios: ranging recovery (median relative error < 10%), dual-source TTC, monotonic four-level state-machine escalation |
+| `tests/test_calibration_horizon_synthetic.py` | joint calibration recovers `horizon_y` (truth 320 / 360 / 400, tolerance 8 px) |
+| `tests/test_bytetrack_vendor.py` | vendored ByteTrack runs without Cython extensions (numpy shim, numpy≥1.24 alias restoration, real tracked output) |
+| `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
+| `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
 
-CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 走 `pip install -e ".[yolo,dev]"`，验证含可选检测后端（yolo extra）的完整依赖解析。
+CI (`.github/workflows/ci.yml`) runs the above tests and the zero-data demo on Ubuntu / Windows × Python 3.10 / 3.12; a separate job runs `pip install -e ".[yolo,dev]"`, validating full dependency resolution including the optional detector backend (yolo extra).
 
 ---
 
-## 许可
+## License
 
-本项目代码以 **Apache-2.0** 许可发布，详见 [LICENSE](LICENSE)。
+This project's code is released under **Apache-2.0**; see [LICENSE](LICENSE).
 
-## 第三方依赖与致谢
+## Third-party components & acknowledgments
 
-| 组件 | 许可 | 用途 |
+| Component | License | Use |
 | --- | --- | --- |
-| [ByteTrack](https://github.com/ifzhang/ByteTrack) | MIT | 多目标跟踪（已 vendored 最小子集于 `aeb/tracker/vendor/bytetrack/`，许可证原文随包分发） |
-| [D-FINE](https://github.com/Peterande/D-FINE) | Apache-2.0 | 可选高精度检测后端 |
-| [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | 可选检测后端（yolo extra） |
-| [BDD100K](https://bdd-data.berkeley.edu/) | 仅学术 / 非商业、禁止再分发 | 训练数据（权重受限分发） |
+| [ByteTrack](https://github.com/FoundationVision/ByteTrack) | MIT | multi-object tracking (minimal subset vendored at `aeb/tracker/vendor/bytetrack/`, license text shipped with the wheel) |
+| [D-FINE](https://github.com/Peterande/D-FINE) | Apache-2.0 | optional high-accuracy detection backend |
+| [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | optional detection backend (yolo extra) |
+| [BDD100K](https://bdd-data.berkeley.edu/) | academic/non-commercial, no redistribution | training data (weights restricted) |
 
-> ⚠️ **许可提示**：`ultralytics` 采用 AGPL-3.0，对衍生作品与网络服务场景存在 copyleft 要求。若你的分发场景需避免这些义务，可改用 Apache-2.0 许可的 D-FINE 作为检测后端（`--detector dfine`）。本仓库自身代码以 Apache-2.0 发布。
+> ⚠️ **License note**: `ultralytics` is AGPL-3.0, which imposes copyleft obligations on derivative works and network-service scenarios. If your distribution needs to avoid those obligations, use the Apache-2.0 D-FINE detector instead (`--detector dfine`). This repository's own code is Apache-2.0.
