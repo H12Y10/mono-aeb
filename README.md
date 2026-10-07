@@ -79,7 +79,7 @@ pip install -e ".[dfine]"   # torch / torchvision / pillow
 
 **About Windows**: `torch` requires the Microsoft Visual C++ runtime; on some machines (especially lab/clean-room environments) its absence shows up as `OSError: [WinError 126] ... c10.dll` failing to load. Installing the [VC++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) once resolves it. (The `--demo` zero-data demo does not import torch, so it does not need this.)
 
-On non-Chinese Windows locales (console codepage not UTF-8), the example scripts print Chinese and throw `UnicodeEncodeError`; run `set PYTHONUTF8=1` first. Linux/macOS and Chinese Windows are unaffected.
+On Windows consoles whose code page is not UTF-8, non-ASCII text (for example in your own file paths, or in messages coming from third-party libraries) can still raise `UnicodeEncodeError`; run `set PYTHONUTF8=1` first. Linux/macOS and UTF-8 consoles are unaffected.
 
 ---
 
