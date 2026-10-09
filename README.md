@@ -40,6 +40,14 @@ The risk state machine only escalates while a target is inside the ego-path corr
 
 Requires Python ≥ 3.10.
 
+From PyPI:
+
+```bash
+pip install mono-aeb
+```
+
+From source (for development):
+
 ```bash
 pip install -e .
 ```

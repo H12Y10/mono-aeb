@@ -40,6 +40,14 @@ A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-pa
 
 需要 Python ≥ 3.10。
 
+从 PyPI 安装：
+
+```bash
+pip install mono-aeb
+```
+
+从源码安装（开发用）：
+
 ```bash
 pip install -e .
 ```
