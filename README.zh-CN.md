@@ -300,7 +300,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 
-**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-09 在 `v0.1.1` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%——而 `detectors/*` 与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表。
+**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-09 在 `v0.1.2` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%——而 `detectors/*` 与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表。
 
 **Lint / 格式化**：使用 [`ruff`](https://github.com/astral-sh/ruff)，配置在 `pyproject.toml`（排除 vendored ByteTrack 子集；允许注释中的中文标点），另配 [`pre-commit`](https://pre-commit.com/) 钩子（`.pre-commit-config.yaml`）。本地启用：`pip install pre-commit && pre-commit install`；CI 有独立 job 跑 `ruff check` 与 `ruff format --check`。
 
