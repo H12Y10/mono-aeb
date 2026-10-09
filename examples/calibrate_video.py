@@ -53,10 +53,14 @@ def main():
 
     ts, speeds = load_ego_speed_series(path)
     if ts is not None and len(ts) > 0:
-        ego_speed_fn = lambda i: ego_speed_at(ts, speeds, i / fps)
+
+        def ego_speed_fn(i):
+            return ego_speed_at(ts, speeds, i / fps)
     else:
         v_median = load_ego_speed(path, agg="median") or 12.0
-        ego_speed_fn = lambda i, v=v_median: v
+
+        def ego_speed_fn(i, v=v_median):
+            return v
 
     def frames():
         i = 0
@@ -68,23 +72,31 @@ def main():
             i += 1
 
     fh, horizon, n_samples, n_tracks = estimate_ground_plane(
-        detector, frames(), camera, ego_speed_fn,
-        fps=fps, max_frames=args.max_frames,
+        detector,
+        frames(),
+        camera,
+        ego_speed_fn,
+        fps=fps,
+        max_frames=args.max_frames,
     )
     cap.release()
 
     print(f"video: {path.stem}")
     print(f"samples: {n_samples} (across {n_tracks} tracks)")
     if fh is None:
-        print("calibration failed: not enough static-target samples (increase --max-frames or try another clip)")
+        print(
+            "calibration failed: not enough static-target samples "
+            "(increase --max-frames or try another clip)"
+        )
         return
-    print(f"before calibration: f·H = {camera.focal_height:.1f} (placeholder 1100x1.5)  "
-          f"horizon = {camera.horizon_y:.0f} (default)")
+    print(
+        f"before calibration: f·H = {camera.focal_height:.1f} (placeholder 1100x1.5)  "
+        f"horizon = {camera.horizon_y:.0f} (default)"
+    )
     print(f"after calibration:  f·H = {fh:.1f}  horizon = {horizon:.1f}")
     camera.calibrate_scale(fh)
     camera.calibrate_horizon(horizon)
-    print(f"  → focal_px = {camera.focal_px:.1f}"
-          f" (cam_height_m kept at {camera.cam_height_m} m)")
+    print(f"  → focal_px = {camera.focal_px:.1f} (cam_height_m kept at {camera.cam_height_m} m)")
 
 
 if __name__ == "__main__":

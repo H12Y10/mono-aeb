@@ -1,6 +1,8 @@
 # mono-aeb
 
 [![CI](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml/badge.svg)](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
 检测器无关的单目 **AEB（自动紧急制动）/ FCW（前向碰撞预警）** 决策链：检测 → 跟踪 → In-Path 过滤 → 测距 → TTC → 风险决策。
 
@@ -139,8 +141,9 @@ pip install -e ".[yolo]"    # ultralytics（AGPL-3.0）
 ```python
 from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
 
-det = YOLOv8Detector("yolov8n.pt", conf=0.25, device="0",
-                     class_map=COCO_TO_AEB)  # 精调权重则 class_map=None
+det = YOLOv8Detector(
+    "yolov8n.pt", conf=0.25, device="0", class_map=COCO_TO_AEB
+)  # 精调权重则 class_map=None
 ```
 
 ### 可选高精度后端：D-FINE
@@ -162,6 +165,7 @@ python examples/demo_aeb.py --source 视频.mp4 --detector dfine
 
 ```python
 from aeb.detectors import DFineDetector
+
 det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_hgnetv2_m_aeb.yml
 ```
 
@@ -285,7 +289,7 @@ python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov -
 
 ```bash
 pip install -e ".[dev]"     # 或单独 pip install pytest
-pytest -q
+pytest -q --cov=aeb --cov-report=term-missing
 ```
 
 | 测试 | 验证内容 |
@@ -296,7 +300,11 @@ pytest -q
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 
-CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo；另有独立 job 走 `pip install -e ".[yolo,dev]"`，验证含可选检测后端（yolo extra）的完整依赖解析。
+**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-09 在 `v0.1.1` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%——而 `detectors/*` 与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表。
+
+**Lint / 格式化**：使用 [`ruff`](https://github.com/astral-sh/ruff)，配置在 `pyproject.toml`（排除 vendored ByteTrack 子集；允许注释中的中文标点），另配 [`pre-commit`](https://pre-commit.com/) 钩子（`.pre-commit-config.yaml`）。本地启用：`pip install pre-commit && pre-commit install`；CI 有独立 job 跑 `ruff check` 与 `ruff format --check`。
+
+CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo，外加一个独立的 lint job；另有 job 走 `pip install -e ".[yolo,dev]"`，验证含可选检测后端（yolo extra）的完整依赖解析。
 
 ---
 

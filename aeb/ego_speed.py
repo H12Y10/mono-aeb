@@ -23,13 +23,13 @@ def load_ego_speed(video_path, info_dir=None, agg="mean"):
     """
     p = Path(video_path)
     if info_dir is None:
-        info_dir = p.parent.parent / "info"   # videos/ -> ../info
+        info_dir = p.parent.parent / "info"  # videos/ -> ../info
     info_file = Path(info_dir) / f"{p.stem}.json"
     if not info_file.exists():
         return None
     data = json.loads(info_file.read_text(encoding="utf-8"))
     locs = data.get("locations", [])
-    speeds = [l["speed"] for l in locs if isinstance(l.get("speed"), (int, float))]
+    speeds = [loc["speed"] for loc in locs if isinstance(loc.get("speed"), (int, float))]
     if not speeds:
         return None
     if agg == "median":
@@ -46,15 +46,15 @@ def load_ego_speed_series(video_path, info_dir=None):
     """
     p = Path(video_path)
     if info_dir is None:
-        info_dir = p.parent.parent / "info"   # videos/ -> ../info
+        info_dir = p.parent.parent / "info"  # videos/ -> ../info
     info_file = Path(info_dir) / f"{p.stem}.json"
     if not info_file.exists():
         return None, None
     data = json.loads(info_file.read_text(encoding="utf-8"))
     locs = data.get("locations", [])
     ts, sp = [], []
-    for l in locs:
-        t, s = l.get("timestamp"), l.get("speed")
+    for loc in locs:
+        t, s = loc.get("timestamp"), loc.get("speed")
         if isinstance(t, (int, float)) and isinstance(s, (int, float)):
             ts.append(float(t))
             sp.append(float(s))
@@ -75,9 +75,10 @@ def ego_speed_at(times_sec, speeds, t_sec, default=0.0):
 
 if __name__ == "__main__":
     import sys
+
     for path in sys.argv[1:]:
         v = load_ego_speed(path)
         if v is None:
             print(f"{path}: no info data")
         else:
-            print(f"{path}: {v:.2f} m/s = {v*3.6:.1f} km/h")
+            print(f"{path}: {v:.2f} m/s = {v * 3.6:.1f} km/h")

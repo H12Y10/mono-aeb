@@ -1,6 +1,8 @@
 # mono-aeb
 
 [![CI](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml/badge.svg)](https://github.com/H12Y10/mono-aeb/actions/workflows/ci.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
 A detector-agnostic monocular **AEB (Autonomous Emergency Braking) / FCW (Forward Collision Warning)** decision chain: detection → tracking → in-path filtering → ranging → TTC → risk decision.
 
@@ -136,8 +138,9 @@ pip install -e ".[yolo]"    # ultralytics (AGPL-3.0)
 ```python
 from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
 
-det = YOLOv8Detector("yolov8n.pt", conf=0.25, device="0",
-                     class_map=COCO_TO_AEB)  # class_map=None for finetuned weights
+det = YOLOv8Detector(
+    "yolov8n.pt", conf=0.25, device="0", class_map=COCO_TO_AEB
+)  # class_map=None for finetuned weights
 ```
 
 ### Optional high-accuracy backend: D-FINE
@@ -159,6 +162,7 @@ Or pass the arguments directly in code:
 
 ```python
 from aeb.detectors import DFineDetector
+
 det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfine_hgnetv2_m_aeb.yml
 ```
 
@@ -282,7 +286,7 @@ Zero-data test suite: no video, detection weights, or network needed — only th
 
 ```bash
 pip install -e ".[dev]"     # or just pip install pytest
-pytest -q
+pytest -q --cov=aeb --cov-report=term-missing
 ```
 
 | Test | Verifies |
@@ -293,7 +297,11 @@ pytest -q
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
 
-CI (`.github/workflows/ci.yml`) runs the above tests and the zero-data demo on Ubuntu / Windows × Python 3.10 / 3.12; a separate job runs `pip install -e ".[yolo,dev]"`, validating full dependency resolution including the optional detector backend (yolo extra).
+**Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-09 on `v0.1.1`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85% — while `detectors/*` and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the full per-module table on every run.
+
+**Lint / formatting**: [`ruff`](https://github.com/astral-sh/ruff), configured in `pyproject.toml` (the vendored ByteTrack subset is excluded; CJK punctuation in comments is allowed), plus a [`pre-commit`](https://pre-commit.com/) hook set in `.pre-commit-config.yaml`. Run `pip install pre-commit && pre-commit install` to enable it locally; a dedicated CI job runs `ruff check` and `ruff format --check`.
+
+CI (`.github/workflows/ci.yml`) runs the above tests and the zero-data demo on Ubuntu / Windows × Python 3.10 / 3.12, plus a dedicated lint job; a further job runs `pip install -e ".[yolo,dev]"`, validating full dependency resolution including the optional detector backend (yolo extra).
 
 ---
 

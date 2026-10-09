@@ -7,7 +7,7 @@ import ultralytics / torch，保证 `--demo`（只用 BaseDetector）不拉入�
 
 from .base import BaseDetector
 
-__all__ = ["BaseDetector", "YOLOv8Detector", "DFineDetector", "COCO_TO_AEB"]
+__all__ = ["COCO_TO_AEB", "BaseDetector", "DFineDetector", "YOLOv8Detector"]
 
 _LAZY = {
     "YOLOv8Detector": (".yolov8_detector", "YOLOv8Detector"),
@@ -19,6 +19,7 @@ _LAZY = {
 def __getattr__(name):
     if name in _LAZY:
         import importlib
+
         mod_name, attr = _LAZY[name]
         value = getattr(importlib.import_module(mod_name, __name__), attr)
         globals()[name] = value  # 缓存，避免重复 import

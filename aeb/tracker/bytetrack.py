@@ -13,8 +13,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .base import BaseTracker
 from ..types import Detection, Track
+from .base import BaseTracker
 
 # ByteTrack 根目录：优先取 BYTETRACK_ROOT 环境变量，否则回退到包内 vendor 的最小子集
 # （aeb/tracker/vendor/bytetrack，MIT License）。cython_bbox 由本地 numpy shim 顶替。
@@ -22,7 +22,8 @@ from ..types import Detection, Track
 # 注意：默认路径基于 __file__ 同级的 vendor/，因此 editable 安装（指向源码树）与常规
 # 安装（指向 site-packages/aeb/tracker/）都能解析到，不再依赖仓库根目录层级。
 _BYTETRACK_ROOT = os.environ.get("BYTETRACK_ROOT") or (
-    Path(__file__).resolve().parent / "vendor" / "bytetrack")
+    Path(__file__).resolve().parent / "vendor" / "bytetrack"
+)
 _SHIM_DIR = Path(__file__).resolve().parent / "byte_shims"
 
 
@@ -32,6 +33,7 @@ def _patch_numpy():
     在 import yolox 之前把这些别名补回内置类型（dtype=float/int/bool 均合法）。
     """
     import numpy as np
+
     # 仅补 ByteTrack 实际用到的三个已删别名（np.float/int/bool），
     # 不碰 np.object/np.str 等仍存在但已弃用的，避免 FutureWarning
     aliases = {"float": float, "int": int, "bool": bool}
@@ -46,19 +48,27 @@ def _ensure_importable():
     root = Path(_BYTETRACK_ROOT)
     if not root.exists():
         raise RuntimeError(
-            f"ByteTrack source is unavailable ({root} not found): the in-package vendored copy is missing; reinstall this package; "
-            "若设置了 BYTETRACK_ROOT，请确认它指向 ByteTrack 仓库根目录（内含 yolox/tracker/）")
+            f"ByteTrack source is unavailable ({root} not found): "
+            "the in-package vendored copy is missing; reinstall this package; "
+            "若设置了 BYTETRACK_ROOT，请确认它指向 ByteTrack 仓库根目录（内含 yolox/tracker/）"
+        )
     for p in (_SHIM_DIR, root):
         if str(p) not in sys.path:
             sys.path.insert(0, str(p))
-    from yolox.tracker.byte_tracker import BYTETracker
     from yolox.tracker.basetrack import TrackState
+    from yolox.tracker.byte_tracker import BYTETracker
+
     return BYTETracker, TrackState
 
 
 class ByteTrackTracker(BaseTracker):
-    def __init__(self, track_thresh: float = 0.5, track_buffer: int = 30,
-                 match_thresh: float = 0.8, fps: float = 30.0):
+    def __init__(
+        self,
+        track_thresh: float = 0.5,
+        track_buffer: int = 30,
+        match_thresh: float = 0.8,
+        fps: float = 30.0,
+    ):
         BYTETracker, _ = _ensure_importable()
         args = argparse.Namespace(
             track_thresh=track_thresh,
@@ -80,8 +90,7 @@ class ByteTrackTracker(BaseTracker):
         for c in range(7):
             group = [d for d in dets if d.class_id == c]
             if group:
-                arr = np.array([[d.x1, d.y1, d.x2, d.y2, d.score] for d in group],
-                               dtype=np.float32)
+                arr = np.array([[d.x1, d.y1, d.x2, d.y2, d.score] for d in group], dtype=np.float32)
             else:
                 # 无该类检测也要推进 update，让丢失轨迹正确老化
                 arr = np.zeros((0, 5), dtype=np.float32)
@@ -91,12 +100,14 @@ class ByteTrackTracker(BaseTracker):
                 if st.state != TrackState.Tracked:
                     continue
                 x1, y1, x2, y2 = st.tlbr.tolist()
-                tracks.append(Track(
-                    track_id=int(st.track_id),
-                    class_id=c,
-                    bbox=(float(x1), float(y1), float(x2), float(y2)),
-                    score=float(st.score),
-                    state="tracked",
-                    age=int(st.frame_id - st.start_frame),
-                ))
+                tracks.append(
+                    Track(
+                        track_id=int(st.track_id),
+                        class_id=c,
+                        bbox=(float(x1), float(y1), float(x2), float(y2)),
+                        score=float(st.score),
+                        state="tracked",
+                        age=int(st.frame_id - st.start_frame),
+                    )
+                )
         return tracks

@@ -8,7 +8,7 @@ from .detectors import BaseDetector
 from .distance import GroundPlaneDistance
 from .in_path import FixedTrapezoidROI
 from .tracker import ByteTrackTracker
-from .ttc import DistanceTTC, ScaleTTC, TTCFusion, TrackHistory
+from .ttc import DistanceTTC, ScaleTTC, TrackHistory, TTCFusion
 from .types import FrameResult, RiskFeature, RiskLevel
 
 
@@ -30,8 +30,7 @@ class AEBPipeline:
         self.ttc_dist = DistanceTTC(config.fps)
         self.ttc_scale = ScaleTTC(config.fps)
         self.fusion = TTCFusion(config.persist_k)
-        self.sm = RiskStateMachine(config.risk,
-                                   ego_speed_mps=config.ego_speed_mps)
+        self.sm = RiskStateMachine(config.risk, ego_speed_mps=config.ego_speed_mps)
 
     def set_ego_speed(self, v_mps: float):
         """运行时更新自车速度（阈值梯随车速平移）。"""
@@ -92,4 +91,4 @@ class AEBPipeline:
         d_safe = self.cfg.risk.d_safe
         if not np.isfinite(distance) or distance <= d_safe or closing_speed <= 0:
             return 0.0
-        return closing_speed ** 2 / (2 * (distance - d_safe))
+        return closing_speed**2 / (2 * (distance - d_safe))

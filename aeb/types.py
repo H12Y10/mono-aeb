@@ -17,6 +17,7 @@ class RiskLevel(IntEnum):
 @dataclass
 class Detection:
     """检测器无关契约：`[x1, y1, x2, y2, score, class]`。"""
+
     x1: float
     y1: float
     x2: float
@@ -49,11 +50,12 @@ class Detection:
 @dataclass
 class Track:
     """跟踪输出（含历史轨迹供 TTC_scale / 时序滤波）。"""
+
     track_id: int
     class_id: int
-    bbox: tuple          # (x1, y1, x2, y2)
+    bbox: tuple  # (x1, y1, x2, y2)
     score: float
-    state: str           # tracked | new | lost
+    state: str  # tracked | new | lost
     age: int = 0
 
     @property
@@ -76,6 +78,7 @@ class Track:
 @dataclass
 class RiskFeature:
     """决策输入（风险特征）+ 决策输出。"""
+
     track_id: int
     in_path: bool
     distance: float = float("inf")
@@ -92,6 +95,7 @@ class RiskFeature:
 @dataclass
 class FrameResult:
     """单帧完整结果，供可视化 / 评测。"""
+
     frame_idx: int
     detections: list
     tracks: list

@@ -13,8 +13,9 @@ from ..types import RiskFeature, RiskLevel
 
 
 class RiskStateMachine:
-    def __init__(self, thresholds: RiskThresholds, hysteresis: float = 0.3,
-                 ego_speed_mps: float = 12.0):
+    def __init__(
+        self, thresholds: RiskThresholds, hysteresis: float = 0.3, ego_speed_mps: float = 12.0
+    ):
         self.thr = thresholds
         self.hys = hysteresis
         self.ego_speed = ego_speed_mps
@@ -56,7 +57,7 @@ class RiskStateMachine:
         raw = self._raw_level(ttc)
         prev = self._level.get(risk.track_id, RiskLevel.NORMAL)
 
-        if raw >= prev:
+        if raw >= prev:  # noqa: SIM108 —— 显式分支配注释比嵌套三元更易读
             new = raw  # 上升或持平 → 立即响应
         else:
             # 下降 → 需明显越过阈值才降级（迟滞）

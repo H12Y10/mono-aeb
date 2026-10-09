@@ -23,8 +23,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .base import BaseDetector
 from ..types import AEB_CLASS_NAMES, Detection
+from .base import BaseDetector
 
 # D-FINE 后端依赖上游仓库，通过环境变量定位，避免硬编码本地路径：
 #   DFINE_ROOT              D-FINE 上游仓库根目录（内含 src/）
@@ -49,16 +49,21 @@ def _resolve_device(device: str):
 
 
 class DFineDetector(BaseDetector):
-    def __init__(self, weights: str = _DEFAULT_WEIGHTS,
-                 config: str | None = None,
-                 conf: float = 0.25, device: str = "cuda:0"):
+    def __init__(
+        self,
+        weights: str = _DEFAULT_WEIGHTS,
+        config: str | None = None,
+        conf: float = 0.25,
+        device: str = "cuda:0",
+    ):
         import torch
         import torch.nn as nn
         import torchvision.transforms as T
 
         if not _DFINE_ROOT:
             raise RuntimeError(
-                "未设置 DFINE_ROOT 环境变量（D-FINE 上游仓库路径），无法加载 D-FINE 后端")
+                "未设置 DFINE_ROOT 环境变量（D-FINE 上游仓库路径），无法加载 D-FINE 后端"
+            )
         if str(_DFINE_ROOT) not in sys.path:
             sys.path.insert(0, str(_DFINE_ROOT))
         from src.core import YAMLConfig
@@ -66,9 +71,13 @@ class DFineDetector(BaseDetector):
         weights = weights or _DEFAULT_WEIGHTS
         if not weights:
             raise RuntimeError(
-                "未提供 D-FINE 权重：请传 weights 参数或设置 MONO_AEB_DFINE_WEIGHTS 环境变量")
-        config = Path(config) if config else (
-            Path(_DFINE_ROOT) / "configs" / "dfine" / "dfine_hgnetv2_m_aeb.yml")
+                "未提供 D-FINE 权重：请传 weights 参数或设置 MONO_AEB_DFINE_WEIGHTS 环境变量"
+            )
+        config = (
+            Path(config)
+            if config
+            else (Path(_DFINE_ROOT) / "configs" / "dfine" / "dfine_hgnetv2_m_aeb.yml")
+        )
         if not config.exists():
             raise FileNotFoundError(f"D-FINE config not found: {config}")
         if not Path(weights).exists():
@@ -80,10 +89,7 @@ class DFineDetector(BaseDetector):
             cfg.yaml_cfg["HGNetv2"]["pretrained"] = False
 
         checkpoint = torch.load(weights, map_location="cpu")
-        if "ema" in checkpoint:
-            state = checkpoint["ema"]["module"]
-        else:
-            state = checkpoint["model"]
+        state = checkpoint["ema"]["module"] if "ema" in checkpoint else checkpoint["model"]
         cfg.model.load_state_dict(state)
 
         class _Model(nn.Module):
@@ -123,11 +129,10 @@ class DFineDetector(BaseDetector):
         scores = scores[0].cpu().numpy()
 
         dets: list[Detection] = []
-        for c, (x1, y1, x2, y2), s in zip(labels, boxes, scores):
+        for c, (x1, y1, x2, y2), s in zip(labels, boxes, scores, strict=False):
             if s < self.conf:
                 continue
             c = int(c)
             if 0 <= c < len(AEB_CLASS_NAMES):
-                dets.append(Detection(float(x1), float(y1),
-                                      float(x2), float(y2), float(s), c))
+                dets.append(Detection(float(x1), float(y1), float(x2), float(y2), float(s), c))
         return dets

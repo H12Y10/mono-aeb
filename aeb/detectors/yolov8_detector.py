@@ -8,24 +8,30 @@
 import numpy as np
 from ultralytics import YOLO
 
-from .base import BaseDetector
 from ..types import AEB_CLASS_NAMES, Detection
+from .base import BaseDetector
 
 # COCO id → AEB id（person/rider/car/truck/bus/bike/motor）
 COCO_TO_AEB = {
-    0: 0,   # person  → person
-    1: 5,   # bicycle → bike
-    2: 2,   # car     → car
-    3: 6,   # motorcycle → motor
-    5: 4,   # bus     → bus
-    7: 3,   # truck   → truck
+    0: 0,  # person  → person
+    1: 5,  # bicycle → bike
+    2: 2,  # car     → car
+    3: 6,  # motorcycle → motor
+    5: 4,  # bus     → bus
+    7: 3,  # truck   → truck
     # 注意：COCO 无 "rider"，baseline 里 rider 不出现（正常）
 }
 
 
 class YOLOv8Detector(BaseDetector):
-    def __init__(self, weights: str, conf: float = 0.25, imgsz: int = 640,
-                 device: str = "cuda:0", class_map: dict | None = None):
+    def __init__(
+        self,
+        weights: str,
+        conf: float = 0.25,
+        imgsz: int = 640,
+        device: str = "cuda:0",
+        class_map: dict | None = None,
+    ):
         self.model = YOLO(weights)
         self.conf = conf
         self.imgsz = imgsz
@@ -34,8 +40,11 @@ class YOLOv8Detector(BaseDetector):
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         res = self.model.predict(
-            frame, conf=self.conf, imgsz=self.imgsz,
-            device=self.device, verbose=False,
+            frame,
+            conf=self.conf,
+            imgsz=self.imgsz,
+            device=self.device,
+            verbose=False,
         )[0]
 
         boxes = res.boxes
@@ -47,9 +56,10 @@ class YOLOv8Detector(BaseDetector):
         clss = boxes.cls.cpu().numpy().astype(int)
 
         dets = []
-        for (x1, y1, x2, y2), s, c in zip(xyxy, confs, clss):
+        for (x1, y1, x2, y2), s, c in zip(xyxy, confs, clss, strict=False):
             aeb_c = int(c) if self.class_map is None else self.class_map.get(int(c))
             if aeb_c is not None and 0 <= aeb_c < len(AEB_CLASS_NAMES):
-                dets.append(Detection(float(x1), float(y1), float(x2), float(y2),
-                                      float(s), int(aeb_c)))
+                dets.append(
+                    Detection(float(x1), float(y1), float(x2), float(y2), float(s), int(aeb_c))
+                )
         return dets

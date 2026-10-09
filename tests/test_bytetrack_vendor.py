@@ -25,8 +25,7 @@ def test_vendored_root_resolves_inside_package():
     """vendored 根目录必须落在包内 —— 这样 editable 与常规安装都能解析到。"""
     root = Path(bt._BYTETRACK_ROOT)
     assert root.is_dir(), f"vendored ByteTrack 根目录不存在: {root}"
-    assert "vendor" in root.parts and "bytetrack" in root.parts, \
-        f"vendored 根目录位置异常: {root}"
+    assert "vendor" in root.parts and "bytetrack" in root.parts, f"vendored 根目录位置异常: {root}"
 
 
 def test_cython_bbox_uses_numpy_shim_not_extension():

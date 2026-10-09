@@ -7,9 +7,9 @@
 import cv2
 import numpy as np
 
-from .base import InPathFilter
 from ..config import CameraConfig, EgoPathConfig
 from ..types import Track
+from .base import InPathFilter
 
 
 def ego_path_polygon(cam: CameraConfig, ego: EgoPathConfig) -> np.ndarray:
@@ -28,10 +28,10 @@ def ego_path_polygon(cam: CameraConfig, ego: EgoPathConfig) -> np.ndarray:
         return (u, v)
 
     pts = [
-        proj(x_left, ego.z_near_m),    # 左下
-        proj(x_right, ego.z_near_m),   # 右下
-        proj(x_right, ego.z_far_m),    # 右上
-        proj(x_left, ego.z_far_m),     # 左上
+        proj(x_left, ego.z_near_m),  # 左下
+        proj(x_right, ego.z_near_m),  # 右下
+        proj(x_right, ego.z_far_m),  # 右上
+        proj(x_left, ego.z_far_m),  # 左上
     ]
     poly = np.array(pts, dtype=np.float32)
     poly[:, 0] = np.clip(poly[:, 0], 0, cam.img_w)
@@ -49,5 +49,10 @@ class FixedTrapezoidROI(InPathFilter):
 
     def draw(self, frame: np.ndarray, color=(0, 255, 0), thickness=2) -> np.ndarray:
         """可视化 ROI（调试 / demo 用）。"""
-        return cv2.polylines(frame.copy(), [self.poly.astype(np.int32)],
-                             isClosed=True, color=color, thickness=thickness)
+        return cv2.polylines(
+            frame.copy(),
+            [self.poly.astype(np.int32)],
+            isClosed=True,
+            color=color,
+            thickness=thickness,
+        )

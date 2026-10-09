@@ -26,7 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 yolo = ["ultralytics"]
 dfine = ["torch", "torchvision", "pillow"]
-dev = ["pytest"]
+dev = ["pytest", "pytest-cov"]
 
 [project.urls]
 Homepage = "https://github.com/H12Y10/mono-aeb"
@@ -38,6 +38,47 @@ include = ["aeb*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["aeb"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# ---------------------------------------------------------------------------
+# Lint / 格式化（ruff）。CI 跑 `ruff check` + `ruff format --check`，
+# 本地可 `pre-commit install` 后自动执行（见 .pre-commit-config.yaml）。
+# ---------------------------------------------------------------------------
+[tool.ruff]
+# 本仓库既有代码基本在 100 列以内（最长约 132，已改齐）
+line-length = 100
+target-version = "py310"
+# vendored ByteTrack 是第三方最小子集，保持上游原样以便与上游 diff，不参与 lint/格式化
+extend-exclude = ["aeb/tracker/vendor"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific
+]
+ignore = [
+    # 本仓库中英混排，中文注释/文档串里的全角标点会被判为「易混淆字符」，非缺陷
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aeb"]
 
 # vendored ByteTrack（MIT）的许可证原文随包分发，与 dist-info/licenses 下的副本并存，
 # 保证「源码旁边就有它自己的许可声明」，满足 MIT 的保留声明要求。

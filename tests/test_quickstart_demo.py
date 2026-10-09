@@ -15,7 +15,9 @@ QUICKSTART = ROOT / "examples" / "quickstart.py"
 def _run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(QUICKSTART), *args],
-        capture_output=True, text=True, cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
     )
 
 

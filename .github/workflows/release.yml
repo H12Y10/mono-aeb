@@ -1,0 +1,74 @@
+name: Release
+
+# 打 tag（v*）时构建 sdist/wheel 并挂到对应的 GitHub Release；
+# 若要发布到 PyPI，需先在 PyPI 侧配置 Trusted Publisher，再手动触发本工作流
+# （workflow_dispatch）——「推 tag」本身不会自动上传 PyPI。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 构建 sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 构建
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      - name: twine check（元数据/README 渲染自检）
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    name: 挂到 GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # 本 job 不 checkout，gh 无从推断仓库，故显式 --repo。
+      - name: 上传 sdist / wheel 到 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/* --repo "${{ github.repository }}" --clobber
+
+  pypi-publish:
+    name: 发布到 PyPI（Trusted Publishing）
+    needs: build
+    # 只在手动触发时发布，避免推 tag 误发 PyPI
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mono-aeb
+    permissions:
+      id-token: write # Trusted Publishing 用 OIDC，无需 API token
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

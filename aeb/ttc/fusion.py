@@ -18,8 +18,7 @@ class TTCFusion:
         self.persist_k = persist_k
         self._last = {}  # track_id -> (frame_idx, fused_ttc)
 
-    def fuse(self, track_id: int, frame_idx: int,
-             ttc_distance: float, ttc_scale: float) -> float:
+    def fuse(self, track_id: int, frame_idx: int, ttc_distance: float, ttc_scale: float) -> float:
         ttc = min(ttc_distance, ttc_scale)
 
         if np.isfinite(ttc):

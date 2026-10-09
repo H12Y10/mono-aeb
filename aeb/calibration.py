@@ -123,8 +123,13 @@ def estimate_ground_plane(
     标定失败时 focal_height/horizon_y 为 None。
     """
     samples, n_tracks = _collect_ground_samples(
-        detector, frames, ego_speed_fn, fps,
-        min_ego_speed, min_history, max_frames,
+        detector,
+        frames,
+        ego_speed_fn,
+        fps,
+        min_ego_speed,
+        min_history,
+        max_frames,
     )
     if len(samples) < min_samples or n_tracks < min_tracks:
         return None, None, len(samples), n_tracks

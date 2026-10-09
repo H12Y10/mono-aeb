@@ -28,10 +28,10 @@ class DistanceTTC(TTCEstimator):
             return None
         ts, ds = ts[valid], ds[valid]
 
-        a = theil_sen_slope(ts, ds)   # D = a·t + b，接近时 a < 0
+        a = theil_sen_slope(ts, ds)  # D = a·t + b，接近时 a < 0
         v_close = float(-a)
         if v_close > MAX_CLOSING_SPEED:
-            return None               # 超出物理上限，判不可信
+            return None  # 超出物理上限，判不可信
         d_now = float(np.median(ds))  # 中位数，抗末帧离群
         return v_close, d_now
 

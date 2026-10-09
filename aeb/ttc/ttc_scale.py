@@ -26,10 +26,7 @@ def theil_sen_slope(x: np.ndarray, y: np.ndarray) -> float:
     """Theil-Sen 斜率估计（对 ~50% 离群不敏感）。"""
     n = len(x)
     slopes = [
-        (y[j] - y[i]) / (x[j] - x[i])
-        for i in range(n)
-        for j in range(i + 1, n)
-        if x[j] != x[i]
+        (y[j] - y[i]) / (x[j] - x[i]) for i in range(n) for j in range(i + 1, n) if x[j] != x[i]
     ]
     if not slopes:
         return 0.0
@@ -49,7 +46,7 @@ class ScaleTTC(TTCEstimator):
         ts, hs = ts[valid], hs[valid]
 
         b = theil_sen_slope(ts, 1.0 / hs)  # 1/h 对 t 的斜率，接近时 b < 0
-        h_now = float(np.median(hs))        # 中位数，抗末帧离群
+        h_now = float(np.median(hs))  # 中位数，抗末帧离群
         if b >= 0 or h_now <= 0:
             return float("inf")  # 未接近 / 静止 / 远离
         return float(np.clip(-1.0 / (b * h_now), TTC_MIN, TTC_MAX))

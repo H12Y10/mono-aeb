@@ -7,14 +7,15 @@
 
 import numpy as np
 
-from .base import DistanceEstimator
 from ..config import CameraConfig
 from ..types import Track
+from .base import DistanceEstimator
 
 
 class GroundPlaneDistance(DistanceEstimator):
-    def __init__(self, camera: CameraConfig,
-                 max_distance: float = 150.0, min_distance: float = 1.0):
+    def __init__(
+        self, camera: CameraConfig, max_distance: float = 150.0, min_distance: float = 1.0
+    ):
         self.fh = camera.focal_height  # 测距尺度 f·H（f、H 尺度简并，只取乘积）
         self.hy = camera.horizon_y
         self.d_max = max_distance

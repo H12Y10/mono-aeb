@@ -12,17 +12,18 @@
   - 免标定尺度 TTC（TTC_scale = h/ḣ）不经过本类，见 ttc 模块。
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Optional, Sequence
 
 
 @dataclass
 class CameraConfig:
     """地面平面相机模型（测距 + ROI 共用同一套参数）。"""
-    cam_height_m: float = 1.5     # 相机离地高度 (m)；与 focal_px 只以乘积进入测距
-    focal_px: float = 1100.0      # 焦距 (像素，占位值)；ROI 横向投影需单独用 f
-    horizon_y: float = 360.0      # 地平线像素行（受 pitch 影响，720/2 近似，逐视频校正）
-    principal_x: float = 640.0    # 主点 x（图像中心）
+
+    cam_height_m: float = 1.5  # 相机离地高度 (m)；与 focal_px 只以乘积进入测距
+    focal_px: float = 1100.0  # 焦距 (像素，占位值)；ROI 横向投影需单独用 f
+    horizon_y: float = 360.0  # 地平线像素行（受 pitch 影响，720/2 近似，逐视频校正）
+    principal_x: float = 640.0  # 主点 x（图像中心）
     img_w: int = 1280
     img_h: int = 720
 
@@ -72,7 +73,7 @@ class CameraConfig:
         widths_px: Sequence[float],
         y_bottoms: Sequence[float],
         real_width_m: float = 1.8,
-        horizon_y: Optional[float] = None,
+        horizon_y: float | None = None,
     ) -> None:
         """由已知目标宽度反标定相机高度 H（轿车 real_width_m≈1.8m）。
 
@@ -90,7 +91,7 @@ class CameraConfig:
         if any(x <= 0 for x in xs) or any(w <= 0 for w in ws):
             raise ValueError("y_bottom must be below horizon and widths must be positive")
         # 过原点最小二乘：slope = Σ(w·x) / Σ(x²)
-        slope = sum(w * x for w, x in zip(ws, xs)) / sum(x * x for x in xs)
+        slope = sum(w * x for w, x in zip(ws, xs, strict=True)) / sum(x * x for x in xs)
         if slope <= 0:
             raise ValueError("fitted slope is non-positive; cannot calibrate")
         self.cam_height_m = float(real_width_m) / slope
@@ -99,9 +100,10 @@ class CameraConfig:
 @dataclass
 class EgoPathConfig:
     """自车路径走廊：地面平面上的矩形 → 投影成图像梯形。"""
-    lane_width_m: float = 3.5     # 车道宽 (m)
-    z_near_m: float = 4.5         # 走廊近端纵向距离 (m)（≈图像底边对应距离）
-    z_far_m: float = 80.0         # 走廊远端纵向距离 (m)
+
+    lane_width_m: float = 3.5  # 车道宽 (m)
+    z_near_m: float = 4.5  # 走廊近端纵向距离 (m)（≈图像底边对应距离）
+    z_far_m: float = 80.0  # 走廊远端纵向距离 (m)
     lateral_offset_m: float = 0.0  # 自车中心横向偏移 (m)，正=右
 
 
@@ -114,19 +116,18 @@ class RiskThresholds:
         TTC_AEB(v) = t_react + v / (2·a_max)
     FCW / ATTENTION 在此基础上加固定前置余量，整条决策梯度随车速整体平移。
     """
-    t_react: float = 0.5               # 驾驶员反应时间 (s)
-    a_max: float = 6.86                # 紧急制动最大减速度 (m/s²，≈0.7g)
-    ttc_fcw_margin: float = 1.0        # FCW 相对 AEB 的前置余量 (s)
+
+    t_react: float = 0.5  # 驾驶员反应时间 (s)
+    a_max: float = 6.86  # 紧急制动最大减速度 (m/s²，≈0.7g)
+    ttc_fcw_margin: float = 1.0  # FCW 相对 AEB 的前置余量 (s)
     ttc_attention_margin: float = 2.0  # ATTENTION 相对 AEB 的前置余量 (s)
-    d_safe: float = 5.0                # 安全距离 (m)，用于 a_req
+    d_safe: float = 5.0  # 安全距离 (m)，用于 a_req
 
     def ladder(self, v_ego_mps: float) -> tuple[float, float, float]:
         """返回 (ttc_attention, ttc_fcw, ttc_aeb)，随自车速度动态变化。"""
         v = max(v_ego_mps, 0.0)
         aeb = self.t_react + v / (2.0 * self.a_max)
-        return (aeb + self.ttc_attention_margin,
-                aeb + self.ttc_fcw_margin,
-                aeb)
+        return (aeb + self.ttc_attention_margin, aeb + self.ttc_fcw_margin, aeb)
 
 
 @dataclass
@@ -143,8 +144,8 @@ class AEBConfig:
     match_thresh: float = 0.8
     fps: float = 30.0
     # 时序
-    history_len: int = 10         # N = 5~15
-    persist_k: int = 3            # 连续 K 帧低于阈值才升级
+    history_len: int = 10  # N = 5~15
+    persist_k: int = 3  # 连续 K 帧低于阈值才升级
     # 自车速度 (m/s)：demo/probe 从 samples-1k/info/*.json 的 GPS speed 读真实值，
     # 未提供时用 12 m/s（≈43 km/h 城市）作为 fallback 默认
     ego_speed_mps: float = 12.0

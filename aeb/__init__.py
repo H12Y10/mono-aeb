@@ -7,17 +7,17 @@
 from .types import (
     AEB_CLASS_NAMES,
     Detection,
-    Track,
+    FrameResult,
     RiskFeature,
     RiskLevel,
-    FrameResult,
+    Track,
 )
 
 __all__ = [
     "AEB_CLASS_NAMES",
     "Detection",
-    "Track",
+    "FrameResult",
     "RiskFeature",
     "RiskLevel",
-    "FrameResult",
+    "Track",
 ]

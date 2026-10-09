@@ -22,12 +22,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import cv2  # noqa: E402
+import cv2
 
-from aeb.config import AEBConfig  # noqa: E402
-from aeb.detectors import BaseDetector  # noqa: E402
-from aeb.pipeline import AEBPipeline  # noqa: E402
-from aeb.types import Detection, RiskLevel  # noqa: E402
+from aeb.config import AEBConfig
+from aeb.detectors import BaseDetector
+from aeb.pipeline import AEBPipeline
+from aeb.types import Detection, RiskLevel
 
 # 核心依赖（--demo 即够用）：tracker/测距/TTC 需要，不含检测权重
 CORE_DEPS = {
@@ -72,10 +72,17 @@ class SyntheticDetector(BaseDetector):
     (t, 1/h) 的 Theil-Sen 拟合都能恢复 TTC = D/v_close，状态自然升级。
     """
 
-    def __init__(self, fps: float = 30.0, v_close: float = 10.0,
-                 d0: float = 45.0, focal_height: float = 1650.0,
-                 horizon: float = 360.0, cx: float = 640.0,
-                 aspect: float = 1.2, d_min: float = 5.0):
+    def __init__(
+        self,
+        fps: float = 30.0,
+        v_close: float = 10.0,
+        d0: float = 45.0,
+        focal_height: float = 1650.0,
+        horizon: float = 360.0,
+        cx: float = 640.0,
+        aspect: float = 1.2,
+        d_min: float = 5.0,
+    ):
         self.fps = fps
         self.v_close = v_close
         self.d0 = d0
@@ -93,14 +100,15 @@ class SyntheticDetector(BaseDetector):
         d = max(self.d0 - self.v_close * t, self.d_min)
 
         y_bottom = self.horizon + self.fh / d
-        h = self.fh / d            # 与相机同高目标：框高 = 底边到 horizon 的距离
+        h = self.fh / d  # 与相机同高目标：框高 = 底边到 horizon 的距离
         w = h * self.aspect
         x1 = self.cx - w / 2
         x2 = self.cx + w / 2
         y1 = y_bottom - h
         y2 = y_bottom
-        return [Detection(float(x1), float(y1), float(x2), float(y2),
-                          0.9, 2)]  # score=0.9, class=2 (car)
+        return [
+            Detection(float(x1), float(y1), float(x2), float(y2), 0.9, 2)
+        ]  # score=0.9, class=2 (car)
 
 
 def make_frame() -> np.ndarray:
@@ -127,13 +135,29 @@ def draw(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
             ttc_s = f"{r.ttc_fused:.1f}s" if np.isfinite(r.ttc_fused) else "inf"
             label += f"  d={dist_s} ttc={ttc_s}"
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(frame, label, (x1, max(y1 - 6, 14)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+        cv2.putText(
+            frame,
+            label,
+            (x1, max(y1 - 6, 14)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
 
     g = result.global_level
     banner = np.full((44, frame.shape[1], 3), 32, dtype=np.uint8)
-    cv2.putText(banner, f"GLOBAL: {LEVEL_NAMES[g]}", (16, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, LEVEL_COLORS[g], 2, cv2.LINE_AA)
+    cv2.putText(
+        banner,
+        f"GLOBAL: {LEVEL_NAMES[g]}",
+        (16, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        LEVEL_COLORS[g],
+        2,
+        cv2.LINE_AA,
+    )
     return np.vstack([banner, frame])
 
 
@@ -149,10 +173,14 @@ def run_demo(args) -> int:
     det = SyntheticDetector(fps=cfg.fps, v_close=args.v_close)
     pipe = AEBPipeline(cfg, det)
 
-    print(f"[quickstart] ego speed = {cfg.ego_speed_mps:.0f} m/s, "
-          f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s")
-    print("[quickstart] target closing at a constant %.0f m/s; printing the risk state per frame:"
-          % args.v_close)
+    print(
+        f"[quickstart] ego speed = {cfg.ego_speed_mps:.0f} m/s, "
+        f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s"
+    )
+    print(
+        f"[quickstart] target closing at a constant {args.v_close:.0f} m/s; "
+        "printing the risk state per frame:"
+    )
 
     writer = None
     prev_level = None
@@ -166,14 +194,12 @@ def run_demo(args) -> int:
             r = result.risks[0] if result.risks else None
             d = r.distance if r is not None else float("inf")
             ttc = r.ttc_fused if r is not None else float("inf")
-            print(f"  frame {i:3d}: {LEVEL_NAMES[level]:<9s}"
-                  f"  d={d:5.1f}m  ttc={ttc:5.2f}s")
+            print(f"  frame {i:3d}: {LEVEL_NAMES[level]:<9s}  d={d:5.1f}m  ttc={ttc:5.2f}s")
             prev_level = level
 
         if writer is None and args.out:
             h, w = out.shape[:2]
-            writer = cv2.VideoWriter(
-                args.out, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (w, h))
+            writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (w, h))
         if writer is not None:
             writer.write(out)
         if args.show:
@@ -188,22 +214,20 @@ def run_demo(args) -> int:
         # 常见于服务器 / Docker / CI）里 destroyAllWindows() 不是 no-op，而是抛
         # cv2.error「The function is not implemented」，因此无头环境必须跳过。
         cv2.destroyAllWindows()
-    print(f"[quickstart] done, {args.frames} frames"
-          + (f", video written to {args.out}" if args.out else ""))
+    print(
+        f"[quickstart] done, {args.frames} frames"
+        + (f", video written to {args.out}" if args.out else "")
+    )
     return 0
 
 
 def main():
     ap = argparse.ArgumentParser(description="mono-aeb 一键体验")
-    ap.add_argument("--demo", action="store_true", default=True,
-                    help="合成 demo（默认）")
-    ap.add_argument("--check", action="store_true",
-                    help="仅做依赖自检，不跑 demo")
-    ap.add_argument("--frames", type=int, default=120,
-                    help="demo 帧数（默认 120）")
+    ap.add_argument("--demo", action="store_true", default=True, help="合成 demo（默认）")
+    ap.add_argument("--check", action="store_true", help="仅做依赖自检，不跑 demo")
+    ap.add_argument("--frames", type=int, default=120, help="demo 帧数（默认 120）")
     ap.add_argument("--fps", type=float, default=30.0)
-    ap.add_argument("--v-close", type=float, default=10.0,
-                    help="合成目标的接近速度 m/s（默认 10）")
+    ap.add_argument("--v-close", type=float, default=10.0, help="合成目标的接近速度 m/s（默认 10）")
     ap.add_argument("--out", default=None, help="输出视频路径（可选）")
     ap.add_argument("--show", action="store_true", help="实时显示")
     args = ap.parse_args()

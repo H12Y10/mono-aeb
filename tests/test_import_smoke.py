@@ -1,5 +1,4 @@
-"""导入链 / ROI 派生 / ByteTrack 封装冒烟测试（不跑检测，无需权重与视频）。
-"""
+"""导入链 / ROI 派生 / ByteTrack 封装冒烟测试（不跑检测，无需权重与视频）。"""
 
 import numpy as np
 

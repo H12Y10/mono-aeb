@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install numpy scipy opencv-python-headless pytest
+          pip install numpy scipy opencv-python-headless pytest pytest-cov
           pip install lap || pip install lapx
           pip install -e . --no-deps
 
@@ -44,8 +44,8 @@ jobs:
       - name: 零数据 demo（NORMAL → ATTENTION → FCW → AEB）
         run: python examples/quickstart.py --demo
 
-      - name: pytest
-        run: pytest -q
+      - name: pytest（含覆盖率表）
+        run: pytest -q --cov=aeb --cov-report=term-missing
 
   full-install:
     name: 完整安装路径（含可选检测后端 yolo + dev extra）
@@ -70,5 +70,26 @@ jobs:
       - name: 依赖自检（检测依赖亦应就绪）
         run: python examples/quickstart.py --check
 
-      - name: pytest
-        run: pytest -q
+      - name: pytest（含覆盖率表）
+        run: pytest -q --cov=aeb --cov-report=term-missing
+
+  lint:
+    name: Lint 与格式化（ruff）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 版本固定在 pyproject.toml / .pre-commit-config.yaml 的同一版本，
+      # 避免 ruff 升级后规则集漂移导致 CI 无故变红。
+      - name: 安装 ruff
+        run: pip install ruff==0.16.10
+
+      - name: ruff check（lint）
+        run: ruff check --output-format=github .
+
+      - name: ruff format --check（格式化）
+        run: ruff format --check .

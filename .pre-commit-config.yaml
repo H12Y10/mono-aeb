@@ -1,0 +1,32 @@
+# pre-commit 钩子：提交前自动跑 lint / 格式化与基础文件卫生检查。
+#
+#   pip install pre-commit
+#   pre-commit install          # 之后每次 git commit 自动执行
+#   pre-commit run --all-files  # 手动全量跑一遍
+#
+# 规则源头是 pyproject.toml 的 [tool.ruff]（单一来源）；这里只负责「什么时候跑」。
+# 版本与 CI 中固定安装的 ruff 保持一致，避免本地/CI 判定不同。
+minimum_pre_commit_version: "3.0.0"
+
+# 全局排除：vendored ByteTrack 按上游原样保存（含「文件末尾无换行」的原貌），
+# 以便与上游 diff / 回提 PR；与 pyproject 的 [tool.ruff].extend-exclude 一致。
+exclude: ^aeb/tracker/vendor/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=2048]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

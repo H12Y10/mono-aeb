@@ -19,8 +19,14 @@ D0, V, TRUE_FH = 100.0, 20.0, 1650.0
 class FakeStaticDetector:
     """正前方一个静止目标，自车以 v 接近，bbox 按地面模型增长（horizon 可自定义）。"""
 
-    def __init__(self, horizon: float, d0: float = D0, v: float = V,
-                 fps: float = FPS, focal_height: float = TRUE_FH):
+    def __init__(
+        self,
+        horizon: float,
+        d0: float = D0,
+        v: float = V,
+        fps: float = FPS,
+        focal_height: float = TRUE_FH,
+    ):
         self.horizon = horizon
         self.d0, self.v, self.fps = d0, v, fps
         self.fh = focal_height
@@ -32,7 +38,7 @@ class FakeStaticDetector:
         if d <= 3.0:
             return []
         y_bottom = self.horizon + self.fh / d
-        h = self.fh / d          # 目标高设为与相机高同尺度，仅为 bbox 合理
+        h = self.fh / d  # 目标高设为与相机高同尺度，仅为 bbox 合理
         w = 1.2 * h
         cx = 640.0
         return [Detection(cx - w / 2, y_bottom - h, cx + w / 2, y_bottom, 0.9, 2)]
@@ -48,12 +54,18 @@ def test_estimate_ground_plane_recovers_horizon(horizon):
 
     camera = CameraConfig()  # 默认 horizon=360
     fh, hy, n_samples, n_tracks = estimate_ground_plane(
-        det, frames(), camera, lambda i: 20.0, fps=FPS,
+        det,
+        frames(),
+        camera,
+        lambda i: 20.0,
+        fps=FPS,
     )
-    print(f"真值 f·H={TRUE_FH} horizon={horizon}  →  "
-          f"恢复 f·H={fh if fh is None else round(fh, 1)} "
-          f"horizon={hy if hy is None else round(hy, 1)}  "
-          f"采样={n_samples} 轨迹={n_tracks}")
+    print(
+        f"真值 f·H={TRUE_FH} horizon={horizon}  →  "
+        f"恢复 f·H={fh if fh is None else round(fh, 1)} "
+        f"horizon={hy if hy is None else round(hy, 1)}  "
+        f"采样={n_samples} 轨迹={n_tracks}"
+    )
 
     assert fh is not None and hy is not None, "应能联合标定出 f·H 与 horizon"
     # horizon：决策相关量，严格断言（旧默认 360 在真值 400/320 时差 40px）
