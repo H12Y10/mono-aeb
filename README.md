@@ -297,7 +297,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
 
-**Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-09 on `v0.1.1`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85% — while `detectors/*` and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the full per-module table on every run.
+**Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-09 on `v0.1.2`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85% — while `detectors/*` and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the full per-module table on every run.
 
 **Lint / formatting**: [`ruff`](https://github.com/astral-sh/ruff), configured in `pyproject.toml` (the vendored ByteTrack subset is excluded; CJK punctuation in comments is allowed), plus a [`pre-commit`](https://pre-commit.com/) hook set in `.pre-commit-config.yaml`. Run `pip install pre-commit && pre-commit install` to enable it locally; a dedicated CI job runs `ruff check` and `ruff format --check`.
 

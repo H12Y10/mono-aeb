@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [0.1.2] - 2026-10-09
+
 ### Added
 
 - `ruff` lint/format configuration in `pyproject.toml` (line length 100; the vendored ByteTrack subset is excluded so it stays diffable against upstream) and a `.pre-commit-config.yaml` hook set. A dedicated CI job runs `ruff check` and `ruff format --check`.
