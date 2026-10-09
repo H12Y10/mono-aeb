@@ -49,10 +49,15 @@ jobs:
           path: dist/
 
       # 本 job 不 checkout，gh 无从推断仓库，故显式 --repo。
-      - name: 上传 sdist / wheel 到 Release
+      - name: 确保 Release 存在并上传 sdist / wheel
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${GITHUB_REF_NAME}" dist/* --repo "${{ github.repository }}" --clobber
+        run: |
+          # 新标签可能还没有对应的 Release：先查，不存在则创建后再上传。
+          gh release view "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" \
+                 --title "${GITHUB_REF_NAME}" --generate-notes
+          gh release upload "${GITHUB_REF_NAME}" dist/* --repo "${{ github.repository }}" --clobber
 
   pypi-publish:
     name: 发布到 PyPI（Trusted Publishing）
