@@ -305,6 +305,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_ttc_synthetic.py` | 合成接近场景：测距恢复（中位相对误差 < 10%）、TTC 双源、状态机四级升级单调 |
 | `tests/test_calibration_horizon_synthetic.py` | 联合标定恢复 `horizon_y`（真值 320 / 360 / 400 三组，容差 8 px） |
 | `tests/test_bytetrack_vendor.py` | vendored ByteTrack 不依赖 Cython 扩展即可运行（numpy shim、numpy≥1.24 别名补回、真实产出轨迹） |
+| `tests/test_tracking_synth.py` | 合成多目标跟踪回归：干净场景下 3 个目标 id 稳定（0 次 ID 切换、召回 ≥ 0.95）；目标消失 10 帧（< `track_buffer=30`）后接回同一 id |
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 
@@ -313,6 +314,18 @@ pytest -q --cov=aeb --cov-report=term-missing
 **Lint / 格式化**：使用 [`ruff`](https://github.com/astral-sh/ruff)，配置在 `pyproject.toml`（排除 vendored ByteTrack 子集；允许注释中的中文标点），另配 [`pre-commit`](https://pre-commit.com/) 钩子（`.pre-commit-config.yaml`）。本地启用：`pip install pre-commit && pre-commit install`；CI 有独立 job 跑 `ruff check` 与 `ruff format --check`。
 
 CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上运行上述测试与零数据 demo，外加一个独立的 lint job；另有 job 走 `pip install -e ".[yolo,dev]"`，验证含可选检测后端（yolo extra）的完整依赖解析。
+
+### 容器
+
+[`Dockerfile`](Dockerfile) 一条命令复现同样的环境——`python:3.12-slim` 加 `dev` extra，且不需要编译器，因为核心依赖都有 manylinux wheel：
+
+```bash
+docker build -t mono-aeb .
+docker run --rm mono-aeb                                          # 跑 pytest
+docker run --rm mono-aeb python examples/quickstart.py --check     # 零数据 demo
+```
+
+镜像由本目录构建，未发布到任何镜像仓库。默认命令即零数据测试套件，测试过程不需要网络。
 
 ---
 

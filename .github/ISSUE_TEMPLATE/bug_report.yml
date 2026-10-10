@@ -1,0 +1,65 @@
+name: Bug report
+description: Something behaves differently from what the documentation or the code says it should
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Keep it reproducible — a minimal case is worth more than a long
+        description. For behaviour that comes from the vendored tracker's upstream code, the upstream
+        project may be the better place; the subset here is kept close to it on purpose.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Also say what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: The exact command(s), and the smallest input that shows the problem.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Detector backend
+      options:
+        - none / zero-data (--check)
+        - yolo (ultralytics)
+        - dfine
+        - custom backend (subclass of BaseDetector)
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How was it installed
+      placeholder: "pip install mono-aeb 0.1.2 / pip install -e '.[dev]' / container"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Python version and OS
+      placeholder: "3.12 on Windows 11 / 3.10 on Ubuntu 22.04"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Traceback or output
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: This also happens on the latest release or on `main`.
+        - label: This is not a "please ship model weights / dataset" request (see the README).

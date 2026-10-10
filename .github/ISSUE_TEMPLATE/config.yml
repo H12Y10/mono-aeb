@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation, quick start and detector backends
+    url: https://github.com/H12Y10/mono-aeb/blob/main/README.md
+    about: Install steps, the zero-data demo, the optional backends, and the known limitations.
+  - name: What is out of scope
+    url: https://github.com/H12Y10/mono-aeb/blob/main/ROADMAP.md
+    about: Vehicle control, shipping weights or dataset files, and other deliberate exclusions.
+  - name: Contributing
+    url: https://github.com/H12Y10/mono-aeb/blob/main/CONTRIBUTING.md
+    about: Development setup, the zero-data rule, public contracts, and how to add a backend.

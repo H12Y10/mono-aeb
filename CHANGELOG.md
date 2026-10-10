@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+
+- `CONTRIBUTING.md` — development setup, the zero-data rule for the test suite, the public contracts, how to add a detector backend, and what a useful bug report contains.
+- `ROADMAP.md` — what is shipped, what is being considered, what is deliberately out of scope (vehicle control, redistributing weights or data), and the known limitations.
+- Issue templates under `.github/ISSUE_TEMPLATE/` — a bug report form, a feature request form, and contact links pointing at the README, the roadmap and the contributing guide.
+- `Dockerfile` and `.dockerignore` — `python:3.12-slim` with the `dev` extra. Every core dependency has a manylinux wheel, so the image needs no compiler; the default command runs the zero-data suite. Both READMEs document the container.
+
+### Fixed
+
+- The test table in `README.md` and `README.zh-CN.md` was missing the `tests/test_tracking_synth.py` row (the synthetic tracking benchmark); it is now listed.
 
 ## [0.1.2] - 2026-10-09
 

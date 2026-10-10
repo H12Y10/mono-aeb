@@ -1,0 +1,15 @@
+# Build context hygiene. Patterns without a leading "**/" only match the context root,
+# so the ones that can appear nested (bytecode caches, egg-info) are written with "**/".
+.git
+.github
+.venv
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.egg-info/
+.coverage
+htmlcov/
+build/
+dist/
+README.pdf

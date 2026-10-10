@@ -302,6 +302,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_ttc_synthetic.py` | synthetic closing scenarios: ranging recovery (median relative error < 10%), dual-source TTC, monotonic four-level state-machine escalation |
 | `tests/test_calibration_horizon_synthetic.py` | joint calibration recovers `horizon_y` (truth 320 / 360 / 400, tolerance 8 px) |
 | `tests/test_bytetrack_vendor.py` | vendored ByteTrack runs without Cython extensions (numpy shim, numpy≥1.24 alias restoration, real tracked output) |
+| `tests/test_tracking_synth.py` | synthetic multi-target tracking regression: 3 targets keep stable ids (0 ID switches, recall ≥ 0.95) in a clean scene, and a target absent for 10 frames (< `track_buffer=30`) is re-associated to the same id |
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
 
@@ -310,6 +311,18 @@ pytest -q --cov=aeb --cov-report=term-missing
 **Lint / formatting**: [`ruff`](https://github.com/astral-sh/ruff), configured in `pyproject.toml` (the vendored ByteTrack subset is excluded; CJK punctuation in comments is allowed), plus a [`pre-commit`](https://pre-commit.com/) hook set in `.pre-commit-config.yaml`. Run `pip install pre-commit && pre-commit install` to enable it locally; a dedicated CI job runs `ruff check` and `ruff format --check`.
 
 CI (`.github/workflows/ci.yml`) runs the above tests and the zero-data demo on Ubuntu / Windows × Python 3.10 / 3.12, plus a dedicated lint job; a further job runs `pip install -e ".[yolo,dev]"`, validating full dependency resolution including the optional detector backend (yolo extra).
+
+### Container
+
+A [`Dockerfile`](Dockerfile) builds the same environment in one step — `python:3.12-slim` plus the `dev` extra, and no compiler, because every core dependency has a manylinux wheel:
+
+```bash
+docker build -t mono-aeb .
+docker run --rm mono-aeb                                          # pytest
+docker run --rm mono-aeb python examples/quickstart.py --check    # zero-data demo
+```
+
+The image is built from this directory and is not published to a registry. The default command is the zero-data test suite, and the container needs no network access at test time.
 
 ---
 

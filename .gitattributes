@@ -1,0 +1,7 @@
+# The container recipe and its ignore file are consumed byte-for-byte, not parsed by Python:
+# a CRLF .dockerignore makes patterns like `**/__pycache__/` match nothing (the trailing \r
+# becomes part of the pattern), silently pulling bytecode caches into the build context.
+# Docker itself tolerates CRLF in the Dockerfile, but keeping both LF removes the platform
+# dependency entirely.
+Dockerfile  text eol=lf
+.dockerignore text eol=lf
