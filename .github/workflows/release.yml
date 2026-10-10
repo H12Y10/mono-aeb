@@ -2,7 +2,7 @@ name: Release
 
 # 打 tag（v*）时构建 sdist/wheel 并挂到对应的 GitHub Release；
 # 若要发布到 PyPI，需先在 PyPI 侧配置 Trusted Publisher，再手动触发本工作流
-# （workflow_dispatch）——「推 tag」本身不会自动上传 PyPI。
+# （workflow_dispatch）——“推 tag”本身不会自动上传 PyPI。
 on:
   push:
     tags: ["v*"]

@@ -71,7 +71,7 @@ select = [
     "RUF", # Ruff-specific
 ]
 ignore = [
-    # 本仓库中英混排，中文注释/文档串里的全角标点会被判为「易混淆字符」，非缺陷
+    # 本仓库中英混排，中文注释/文档串里的全角标点会被判为“易混淆字符”，非缺陷
     "RUF001",  # ambiguous-unicode-character-string
     "RUF002",  # ambiguous-unicode-character-docstring
     "RUF003",  # ambiguous-unicode-character-comment
@@ -81,6 +81,6 @@ ignore = [
 known-first-party = ["aeb"]
 
 # vendored ByteTrack（MIT）的许可证原文随包分发，与 dist-info/licenses 下的副本并存，
-# 保证「源码旁边就有它自己的许可声明」，满足 MIT 的保留声明要求。
+# 保证“源码旁边就有它自己的许可声明”，满足 MIT 的保留声明要求。
 [tool.setuptools.package-data]
 "aeb.tracker.vendor.bytetrack" = ["LICENSE"]

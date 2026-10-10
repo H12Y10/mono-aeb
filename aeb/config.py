@@ -1,7 +1,7 @@
 """集中配置：相机标定 / 自车路径 / 风险阈值 / 检测跟踪参数。
 
 相机标定（BDD100K 众包采集、相机逐视频不同，无统一内参）：
-  - 测距只用 f·H 这一个「尺度」量（focal_height 属性），f、H 存在尺度简并；
+  - 测距只用 f·H 这一个“尺度”量（focal_height 属性），f、H 存在尺度简并；
   - horizon_y 由车道线消失点逐视频求；
   - 尺度逐视频自标定（实际入口）：examples/calibrate_video.py 用 calibration.py 的
     estimate_ground_plane() 联合反解 f·H 与 horizon_y，再经 calibrate_scale()/

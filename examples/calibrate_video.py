@@ -4,7 +4,7 @@
     python calibrate_video.py --stem 0571873b-faf718b2
     python calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
 
-跑一遍视频，对「静止目标」用 f·H = v_ego·τ·(y_bottom − horizon) 反解，
+跑一遍视频，对“静止目标”用 f·H = v_ego·τ·(y_bottom − horizon) 反解，
 取中位数作为该视频的测距尺度，并与默认占位 1100×1.5=1650 对比。
 """
 

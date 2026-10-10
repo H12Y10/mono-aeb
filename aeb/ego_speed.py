@@ -2,7 +2,7 @@
 
 info/*.json 里 `locations[].speed` 是 1Hz 采样的 GPS 速度 (m/s)，
 与视频同名（`{stem}.mov` ↔ `info/{stem}.json`）。用整段的均值作为
-「假设自车速度」喂给 AEB 状态机，实现速度自适应阈值。
+“假设自车速度”喂给 AEB 状态机，实现速度自适应阈值。
 
 用法：
     from aeb.ego_speed import load_ego_speed

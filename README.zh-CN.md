@@ -104,7 +104,7 @@ Windows 控制台代码页不是 UTF-8 时，非 ASCII 文本（例如你自己�
 python examples/quickstart.py --demo
 ```
 
-该命令用合成检测器生成一个匀速逼近的目标，跑通「跟踪 → 测距 → TTC → 决策」全链，逐帧打印状态变化：
+该命令用合成检测器生成一个匀速逼近的目标，跑通“跟踪 → 测距 → TTC → 决策”全链，逐帧打印状态变化：
 
 ```
 [quickstart] ego speed = 12 m/s, AEB threshold = 1.37s
@@ -177,16 +177,16 @@ from aeb.detectors import DFineDetector
 det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_hgnetv2_m_aeb.yml
 ```
 
-> ⚠️ **注意**：D-FINE 的微调权重基于 BDD100K 训练，受该数据许可约束（见下），不随本仓库公开。
+> **注意**：D-FINE 的微调权重基于 BDD100K 训练，受该数据许可约束（见下），不随本仓库公开。
 
 ---
 
 ## 权重与数据
 
-> ⚠️ **合规提示**：本仓库不包含任何模型权重与 BDD100K 原始视频/标注。
+> **合规提示**：本仓库不包含任何模型权重与 BDD100K 原始视频/标注。
 
 - **COCO 预训练 YOLOv8 权重**（如 `yolov8n.pt`）由 ultralytics 提供，按 ultralytics 的许可获取。
-- **AEB 精调权重**（YOLOv8 或 D-FINE）基于 BDD100K 微调，而 BDD100K 许可为「仅学术 / 非商业使用、禁止再分发原始数据」。因此这些权重不随本仓库公开，走受限分发（申请获取）。需要者在取得合法数据与许可后，可用本仓库的训练配置自行复现。
+- **AEB 精调权重**（YOLOv8 或 D-FINE）基于 BDD100K 微调，而 BDD100K 许可为“仅学术 / 非商业使用、禁止再分发原始数据”。因此这些权重不随本仓库公开，走受限分发（申请获取）。需要者在取得合法数据与许可后，可用本仓库的训练配置自行复现。
 
 ---
 
@@ -329,4 +329,4 @@ CI（`.github/workflows/ci.yml`）在 Ubuntu / Windows × Python 3.10 / 3.12 上
 | [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | 可选检测后端（yolo extra） |
 | [BDD100K](https://bdd-data.berkeley.edu/) | 仅学术 / 非商业、禁止再分发 | 训练数据（权重受限分发） |
 
-> ⚠️ **许可提示**：`ultralytics` 采用 AGPL-3.0，对衍生作品与网络服务场景存在 copyleft 要求。若你的分发场景需避免这些义务，可改用 Apache-2.0 许可的 D-FINE 作为检测后端（`--detector dfine`）。本仓库自身代码以 Apache-2.0 发布。
+> **许可提示**：`ultralytics` 采用 AGPL-3.0，对衍生作品与网络服务场景存在 copyleft 要求。若你的分发场景需避免这些义务，可改用 Apache-2.0 许可的 D-FINE 作为检测后端（`--detector dfine`）。本仓库自身代码以 Apache-2.0 发布。

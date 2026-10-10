@@ -76,7 +76,7 @@ class ByteTrackTracker(BaseTracker):
             match_thresh=match_thresh,
             mot20=False,
         )
-        # 7 类各一个 tracker：类别一致性靠「分库」保证，car 不会关联成 person
+        # 7 类各一个 tracker：类别一致性靠“分库”保证，car 不会关联成 person
         self._trackers = {c: BYTETracker(args, frame_rate=fps) for c in range(7)}
 
     def update(self, dets: list[Detection], frame: np.ndarray) -> list[Track]:

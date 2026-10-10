@@ -8,7 +8,7 @@
 
 说明：
     --demo 用 SyntheticDetector 生成一个匀速逼近的目标，驱动
-    「跟踪 → 测距 → TTC → 决策」全链，不依赖真实视频 / 检测权重，
+    “跟踪 → 测距 → TTC → 决策”全链，不依赖真实视频 / 检测权重，
     展示 NORMAL → ATTENTION → FCW → AEB 的状态演进。
     真实视频请用 examples/demo_aeb.py（默认 YOLOv8n 检测，--coco 映射）。
 """
@@ -212,7 +212,7 @@ def run_demo(args) -> int:
     if args.show:
         # 仅在实际开过窗口时销毁。无 GUI 的 OpenCV 构建（opencv-python-headless，
         # 常见于服务器 / Docker / CI）里 destroyAllWindows() 不是 no-op，而是抛
-        # cv2.error「The function is not implemented」，因此无头环境必须跳过。
+        # cv2.error“The function is not implemented”，因此无头环境必须跳过。
         cv2.destroyAllWindows()
     print(
         f"[quickstart] done, {args.frames} frames"

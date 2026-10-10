@@ -1,4 +1,4 @@
-"""逐视频离线自标定：用「GPS ego 速度 + 免标定尺度 TTC」联合反解
+"""逐视频离线自标定：用“GPS ego 速度 + 免标定尺度 TTC”联合反解
 测距尺度 f·H 与地平线 horizon_y。
 
 原理：
@@ -22,7 +22,7 @@ from .tracker import ByteTrackTracker
 from .ttc import ScaleTTC, TrackHistory
 
 # f·H（= focal_px × 相机高）的物理合理范围：典型 dashcam focal_px≈400~1600、
-# 相机高≈1.2~1.7m ⇒ f·H 约 500~2700。放宽到 [300, 3000] 只拦「明显失真」——
+# 相机高≈1.2~1.7m ⇒ f·H 约 500~2700。放宽到 [300, 3000] 只拦“明显失真”——
 # 坏 track 的尺度反解会把 f·H 拉到 ~37 或 ~5000 这种任何车载相机都不可能的值，
 # 此时测距整体缩放错 10×，宁可回落默认相机参数（f·H=1650）也不用垃圾值。
 FOCAL_HEIGHT_MIN = 300.0

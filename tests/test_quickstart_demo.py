@@ -1,6 +1,6 @@
 """端到端零数据 demo：把 README 的承诺固化为断言。
 
-README「快速开始」承诺 120 帧内出现 NORMAL → ATTENTION → FCW → AEB 的等级
+README“快速开始”承诺 120 帧内出现 NORMAL → ATTENTION → FCW → AEB 的等级
 演进，并给出了逐帧样例输出。本测试直接跑该 CLI，避免文档与实现悄悄脱节。
 """
 

@@ -174,13 +174,13 @@ from aeb.detectors import DFineDetector
 det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfine_hgnetv2_m_aeb.yml
 ```
 
-> ⚠️ **Note**: D-FINE's finetuned weights are trained on BDD100K and are subject to that dataset's license (see below); they are not distributed with this repository.
+> **Note**: D-FINE's finetuned weights are trained on BDD100K and are subject to that dataset's license (see below); they are not distributed with this repository.
 
 ---
 
 ## Weights & data
 
-> ⚠️ **Compliance note**: this repository does not contain any model weights or BDD100K videos/annotations.
+> **Compliance note**: this repository does not contain any model weights or BDD100K videos/annotations.
 
 - **COCO-pretrained YOLOv8 weights** (e.g. `yolov8n.pt`) are provided by ultralytics and obtained under ultralytics' license.
 - **AEB-finetuned weights** (YOLOv8 or D-FINE) are finetuned on BDD100K, whose license is "academic/non-commercial use only, no redistribution of raw data". These weights are therefore not published here; they are distributed on a restricted basis (on request). Anyone with legitimate data and license access can reproduce them with this repository's training configuration.
@@ -326,4 +326,4 @@ This project's code is released under **Apache-2.0**; see [LICENSE](LICENSE).
 | [ultralytics (YOLOv8)](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | optional detection backend (yolo extra) |
 | [BDD100K](https://bdd-data.berkeley.edu/) | academic/non-commercial, no redistribution | training data (weights restricted) |
 
-> ⚠️ **License note**: `ultralytics` is AGPL-3.0, which imposes copyleft obligations on derivative works and network-service scenarios. If your distribution needs to avoid those obligations, use the Apache-2.0 D-FINE detector instead (`--detector dfine`). This repository's own code is Apache-2.0.
+> **License note**: `ultralytics` is AGPL-3.0, which imposes copyleft obligations on derivative works and network-service scenarios. If your distribution needs to avoid those obligations, use the Apache-2.0 D-FINE detector instead (`--detector dfine`). This repository's own code is Apache-2.0.
