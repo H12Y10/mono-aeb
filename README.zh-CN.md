@@ -101,9 +101,13 @@ Windows 控制台代码页不是 UTF-8 时，非 ASCII 文本（例如你自己�
 
 ### 零数据 demo（无需视频 / 权重）
 
+`pip install mono-aeb` 后（无需视频、无需权重、无需联网）：
+
 ```bash
-python examples/quickstart.py --demo
+mono-aeb demo
 ```
+
+没有 console script 时等价命令为 `python -m aeb demo`。
 
 该命令用合成检测器生成一个匀速逼近的目标，跑通“跟踪 → 测距 → TTC → 决策”全链，逐帧打印状态变化：
 
@@ -117,19 +121,23 @@ python examples/quickstart.py --demo
 [quickstart] done, 120 frames
 ```
 
-可用参数：`--out 视频.mp4`（输出可视化视频）、`--show`（实时窗口）、`--frames` / `--fps` / `--v-close`。`--demo` 模式**不需要** `ultralytics` / `torch`，仅依赖 numpy / scipy / opencv-python / lap。
+可用参数：`--out 视频.mp4`（输出可视化视频）、`--show`（实时窗口）、`--frames` / `--fps` / `--v-close`。demo 模式**不需要** `ultralytics` / `torch`，仅依赖 numpy / scipy / opencv-python / lap。
 
 依赖自检：
 
 ```bash
-python examples/quickstart.py --check
+mono-aeb check
 ```
+
+（源码 checkout 未安装时，等价命令为 `python examples/quickstart.py --demo` 与 `python examples/quickstart.py --check`。）
 
 ### 真实视频
 
 ```bash
-python examples/demo_aeb.py --source 视频.mp4 --coco --out out.mp4
+mono-aeb run --source 视频.mp4 --coco --out out.mp4
 ```
+
+（源码 checkout 里为 `python examples/demo_aeb.py --source 视频.mp4 --coco --out out.mp4`。）
 
 - `--coco`：权重为 COCO 预训练（如 `yolov8n.pt`）时做 COCO → AEB 7 类映射；使用 AEB 精调权重时不加该参数。
 - `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。
@@ -167,7 +175,10 @@ D-FINE 依赖其上游仓库，通过环境变量定位，避免硬编码本地�
 ```bash
 export DFINE_ROOT=/path/to/D-FINE
 export MONO_AEB_DFINE_WEIGHTS=/path/to/best_stg1.pth
-python examples/demo_aeb.py --source 视频.mp4 --detector dfine
+mono-aeb run --source 视频.mp4 --detector dfine
+```
+
+（源码 checkout 里同样参数经薄壳可用：`python examples/demo_aeb.py --source 视频.mp4 --detector dfine`。）
 ```
 
 也可在代码中直接传参：
@@ -198,6 +209,8 @@ det = DFineDetector(weights="/path/to/best_stg1.pth")
 ```
 mono-aeb/
 ├── aeb/
+│   ├── cli.py              # 命令行入口：mono-aeb demo / check / run / calib
+│   ├── __main__.py         # python -m aeb
 │   ├── config.py           # 相机 / 自车路径 / 风险阈值 / 检测跟踪参数
 │   ├── friction.py         # 实测 μ → a_eff 表（附着自适应阈值用）
 │   ├── types.py            # Detection / Track / RiskFeature / RiskLevel 契约
@@ -211,10 +224,10 @@ mono-aeb/
 │   ├── ttc/                # 尺度 TTC / 距离 TTC / 融合 / 轨迹历史
 │   ├── in_path/            # 固定梯形 ROI（自车路径走廊）
 │   └── decision/           # 风险状态机
-├── examples/
-│   ├── quickstart.py       # 一键 demo（--demo / --check）
-│   ├── demo_aeb.py         # 真实视频离线 demo
-│   └── calibrate_video.py  # 逐视频自标定 CLI
+├── examples/               # 源码 checkout 用薄壳；逻辑在 aeb/cli.py
+│   ├── quickstart.py       # → mono-aeb demo / check
+│   ├── demo_aeb.py         # → mono-aeb run
+│   └── calibrate_video.py  # → mono-aeb calib
 ├── tests/                  # 零数据测试套件（不要视频 / 权重 / 网络）
 ├── benchmarks/             # 合成跟踪基准、bbox_overlaps 替身代价基准
 ├── .github/workflows/      # CI（测试 / lint）与 Release（tag → GitHub Release、PyPI）
@@ -303,10 +316,12 @@ BDD100K 由众包采集，相机逐视频不同，无统一内参。本仓库提
 CLI：
 
 ```bash
-python examples/calibrate_video.py --stem 0571873b-faf718b2
+mono-aeb calib --stem 0571873b-faf718b2
 # 或
-python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
+mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
 ```
+
+（源码 checkout 里：`python examples/calibrate_video.py` 参数完全相同。）
 
 `--stem` 模式从 `BDD100K_VIDEO_DIR` 环境变量定位视频目录，缺省为当前目录。
 
@@ -329,6 +344,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_tracking_synth.py` | 合成多目标跟踪回归：干净场景下 3 个目标 id 稳定（0 次 ID 切换、召回 ≥ 0.95）；目标消失 10 帧（< `track_buffer=30`）后接回同一 id |
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
+| `tests/test_cli_module.py` | 从仓库根目录以 subprocess 跑打包入口点：`python -m aeb demo` / `check` / `--version`（等级演进、退出码） |
 | `tests/test_friction_table.py` | 附着自适应阈值：实测 μ→`a_eff` 表（节点值精确、区间线性插值、端点不外推、钳制 ≤ `a_max`、NaN 报错），以及 `friction_mu=None` 与固定 `a_max` 公式逐位一致 |
 
 **覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-11 在 `v0.2.0` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%、`friction.py` 100%——而检测器实现模块（`detectors/dfine_detector.py`、`detectors/yolov8_detector.py`）与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表（完全覆盖的文件会跳过）。

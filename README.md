@@ -98,9 +98,13 @@ On Windows consoles whose code page is not UTF-8, non-ASCII text (for example in
 
 ### Zero-data demo (no video / no weights)
 
+After `pip install mono-aeb` (no video, no weights, no network):
+
 ```bash
-python examples/quickstart.py --demo
+mono-aeb demo
 ```
+
+The same command without the console script is `python -m aeb demo`.
 
 This command drives a synthetic detector that generates a target closing at constant speed, and runs the full detection → tracking → ranging → TTC → decision chain, printing state changes frame by frame:
 
@@ -114,19 +118,23 @@ This command drives a synthetic detector that generates a target closing at cons
 [quickstart] done, 120 frames
 ```
 
-Available options: `--out video.mp4` (write a visualization video), `--show` (live window), `--frames` / `--fps` / `--v-close`. `--demo` mode does **not** require `ultralytics` / `torch`; it depends only on numpy / scipy / opencv-python / lap.
+Available options: `--out video.mp4` (write a visualization video), `--show` (live window), `--frames` / `--fps` / `--v-close`. The demo mode does **not** require `ultralytics` / `torch`; it depends only on numpy / scipy / opencv-python / lap.
 
 Dependency self-check:
 
 ```bash
-python examples/quickstart.py --check
+mono-aeb check
 ```
+
+(From a source checkout without installing, the equivalent commands are `python examples/quickstart.py --demo` and `python examples/quickstart.py --check`.)
 
 ### Real video
 
 ```bash
-python examples/demo_aeb.py --source video.mp4 --coco --out out.mp4
+mono-aeb run --source video.mp4 --coco --out out.mp4
 ```
+
+(From a source checkout: `python examples/demo_aeb.py --source video.mp4 --coco --out out.mp4`.)
 
 - `--coco`: maps COCO classes to the 7 AEB classes when using COCO-pretrained weights (e.g. `yolov8n.pt`); omit it when using AEB-finetuned weights.
 - `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable.
@@ -164,7 +172,10 @@ D-FINE depends on its upstream repository, located via environment variables to 
 ```bash
 export DFINE_ROOT=/path/to/D-FINE
 export MONO_AEB_DFINE_WEIGHTS=/path/to/best_stg1.pth
-python examples/demo_aeb.py --source video.mp4 --detector dfine
+mono-aeb run --source video.mp4 --detector dfine
+```
+
+(From a source checkout the same flags work through the shim: `python examples/demo_aeb.py --source video.mp4 --detector dfine`.)
 ```
 
 Or pass the arguments directly in code:
@@ -195,6 +206,8 @@ The `config` argument defaults to `<DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_ae
 ```
 mono-aeb/
 ├── aeb/
+│   ├── cli.py              # console entry point: mono-aeb demo / check / run / calib
+│   ├── __main__.py         # python -m aeb
 │   ├── config.py           # camera / ego-path / risk thresholds / detection & tracking params
 │   ├── friction.py         # measured μ → a_eff table for friction-aware thresholds
 │   ├── types.py            # Detection / Track / RiskFeature / RiskLevel contracts
@@ -208,10 +221,10 @@ mono-aeb/
 │   ├── ttc/                # scale TTC / distance TTC / fusion / track history
 │   ├── in_path/            # fixed trapezoid ROI (ego-path corridor)
 │   └── decision/           # risk state machine
-├── examples/
-│   ├── quickstart.py       # one-shot demo (--demo / --check)
-│   ├── demo_aeb.py         # offline real-video demo
-│   └── calibrate_video.py  # per-video self-calibration CLI
+├── examples/               # thin shims for checkout use; the logic lives in aeb/cli.py
+│   ├── quickstart.py       # → mono-aeb demo / check
+│   ├── demo_aeb.py         # → mono-aeb run
+│   └── calibrate_video.py  # → mono-aeb calib
 ├── tests/                  # zero-data test suite (no video / weights / network)
 ├── benchmarks/             # synthetic tracking benchmark, bbox_overlaps shim cost
 ├── .github/workflows/      # CI (tests / lint) and Release (tag → GitHub Release, PyPI)
@@ -300,12 +313,12 @@ BDD100K is crowdsourced, so cameras differ per video and there are no unified in
 CLI:
 
 ```bash
-python examples/calibrate_video.py --stem 0571873b-faf718b2
+mono-aeb calib --stem 0571873b-faf718b2
 # or
-python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
+mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
 ```
 
-`--stem` mode locates the video directory via the `BDD100K_VIDEO_DIR` environment variable (defaults to the current directory).
+(From a source checkout: `python examples/calibrate_video.py` takes the identical flags.) `--stem` mode locates the video directory via the `BDD100K_VIDEO_DIR` environment variable (defaults to the current directory).
 
 ---
 
@@ -326,6 +339,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_tracking_synth.py` | synthetic multi-target tracking regression: 3 targets keep stable ids (0 ID switches, recall ≥ 0.95) in a clean scene, and a target absent for 10 frames (< `track_buffer=30`) is re-associated to the same id |
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
+| `tests/test_cli_module.py` | the packaged entry points via subprocess from the repo root: `python -m aeb demo` / `check` / `--version` (level progression, exit codes) |
 | `tests/test_friction_table.py` | friction-aware thresholds: the measured μ→`a_eff` table (exact nodes, interpolation, endpoint clamping without extrapolation, cap at `a_max`, NaN rejected) and `friction_mu=None` staying bit-identical to the fixed-`a_max` formula |
 
 **Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-11 on `v0.2.0`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85%, `friction.py` 100% — while the detector implementation modules (`detectors/dfine_detector.py`, `detectors/yolov8_detector.py`) and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the per-module table on every run (fully covered files are skipped).

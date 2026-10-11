@@ -77,6 +77,24 @@ jobs:
       - name: pytest (with coverage table)
         run: pytest -q --cov=aeb --cov-report=term-missing
 
+      # The steps above run against the editable install / source tree. This one proves the
+      # packaged CLI: it builds the wheel from this checkout, installs it, leaves the checkout
+      # directory (so the working tree cannot satisfy the imports) and runs the console script
+      # and the module form exactly as a user would after `pip install mono-aeb`.
+      - name: Wheel CLI smoke test (mono-aeb / python -m aeb, outside the checkout)
+        shell: bash
+        run: |
+          python -m pip install build
+          python -m build --wheel
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          cd "$RUNNER_TEMP"
+          mono-aeb --version
+          mono-aeb demo | tee demo.out
+          grep -q "AEB" demo.out
+          mono-aeb check
+          python -m aeb demo | tee module_demo.out
+          grep -q "AEB" module_demo.out
+
   lint:
     name: lint & format (ruff)
     runs-on: ubuntu-latest

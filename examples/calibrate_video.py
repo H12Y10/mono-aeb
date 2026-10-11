@@ -7,98 +7,40 @@ Usage:
 Runs one pass over the video and inverse-solves f·H = v_ego·τ·(y_bottom − horizon) from
 approximately stationary targets, taking the median as this video's ranging scale and
 comparing it against the placeholder default 1100 x 1.5 = 1650.
+
+This is a thin wrapper kept for source checkouts: the implementation lives in
+`aeb/cli.py` and ships in the wheel, so after `pip install mono-aeb` the same
+command is `mono-aeb calib ...` (or `python -m aeb calib ...`).
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import cv2
-
-from aeb.calibration import estimate_ground_plane
-from aeb.config import CameraConfig
-from aeb.detectors import YOLOv8Detector
-from aeb.ego_speed import ego_speed_at, load_ego_speed, load_ego_speed_series
-
-VIDEO_DIR = Path(os.environ.get("BDD100K_VIDEO_DIR", "."))
-WEIGHTS = "yolov8n.pt"
+from aeb.cli import main as cli_main
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser(description="per-video offline self-calibration of f·H")
     ap.add_argument("--video", type=str, default=None, help="full path to the video")
     ap.add_argument("--stem", type=str, default=None, help="clip stem under samples-1k/videos")
-    ap.add_argument("--weights", type=str, default=WEIGHTS)
+    ap.add_argument("--weights", type=str, default="yolov8n.pt")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--max-frames", type=int, default=None)
     ap.add_argument("--fps", type=float, default=30.0)
     args = ap.parse_args()
 
+    argv = ["calib", "--weights", args.weights, "--conf", str(args.conf), "--fps", str(args.fps)]
+    if args.video:
+        argv += ["--video", args.video]
     if args.stem:
-        path = VIDEO_DIR / f"{args.stem}.mov"
-    elif args.video:
-        path = Path(args.video)
-    else:
-        raise SystemExit("either --stem or --video is required")
-
-    cap = cv2.VideoCapture(str(path))
-    if not cap.isOpened():
-        raise SystemExit(f"cannot open video {path}")
-    fps = cap.get(cv2.CAP_PROP_FPS) or args.fps
-
-    camera = CameraConfig()  # horizon=360 默认；focal_px/cam_height_m 是待标定的占位
-    detector = YOLOv8Detector(args.weights, conf=args.conf, device="0")
-
-    ts, speeds = load_ego_speed_series(path)
-    if ts is not None and len(ts) > 0:
-
-        def ego_speed_fn(i):
-            return ego_speed_at(ts, speeds, i / fps)
-    else:
-        v_median = load_ego_speed(path, agg="median") or 12.0
-
-        def ego_speed_fn(i, v=v_median):
-            return v
-
-    def frames():
-        i = 0
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            yield i, frame
-            i += 1
-
-    fh, horizon, n_samples, n_tracks = estimate_ground_plane(
-        detector,
-        frames(),
-        camera,
-        ego_speed_fn,
-        fps=fps,
-        max_frames=args.max_frames,
-    )
-    cap.release()
-
-    print(f"video: {path.stem}")
-    print(f"samples: {n_samples} (across {n_tracks} tracks)")
-    if fh is None:
-        print(
-            "calibration failed: not enough static-target samples "
-            "(increase --max-frames or try another clip)"
-        )
-        return
-    print(
-        f"before calibration: f·H = {camera.focal_height:.1f} (placeholder 1100x1.5)  "
-        f"horizon = {camera.horizon_y:.0f} (default)"
-    )
-    print(f"after calibration:  f·H = {fh:.1f}  horizon = {horizon:.1f}")
-    camera.calibrate_scale(fh)
-    camera.calibrate_horizon(horizon)
-    print(f"  → focal_px = {camera.focal_px:.1f} (cam_height_m kept at {camera.cam_height_m} m)")
+        argv += ["--stem", args.stem]
+    if args.max_frames is not None:
+        argv += ["--max-frames", str(args.max_frames)]
+    return cli_main(argv)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

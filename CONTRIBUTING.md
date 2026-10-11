@@ -62,7 +62,7 @@ Treat these as an API. Changing one is a breaking change and needs a clear descr
 | `BaseDetector` | `aeb/detectors/base.py` | the detector-agnostic interface |
 | Default thresholds and geometry | `aeb/config.py` | `t_react`, `a_max`, `friction_mu`, `d_safe`, `history_len`, `persist_k`, `fps`, ego-path trapezoid |
 | Friction → deceleration table | `aeb/friction.py` | `A_EFF_TABLE` / `a_eff_for_mu` (measured values, endpoints clamp, no extrapolation) |
-| CLI flags and output text | `examples/*.py` | user-facing; keep output in English |
+| CLI flags and output text | `aeb/cli.py` | user-facing; keep output in English (the `examples/*.py` shims forward to it) |
 
 ## Adding a detector backend
 
@@ -72,7 +72,7 @@ Treat these as an API. Changing one is a breaking change and needs a clear descr
 3. Declare the dependency as an optional extra in `pyproject.toml`; the default install must stay
    light. Do not import the heavy dependency at module import time — import it lazily inside the
    class so `--check` keeps working without it.
-4. Wire a flag in `examples/demo_aeb.py` and document the backend in both READMEs.
+4. Wire a flag in `aeb/cli.py` (its `run` subcommand; the `examples/demo_aeb.py` shim forwards) and document the backend in both READMEs.
 5. Add a zero-data test that exercises the wrapper without the real dependency (a fake detector that
    returns fixed boxes is enough).
 

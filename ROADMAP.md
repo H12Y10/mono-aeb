@@ -24,6 +24,9 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 - **Zero-data regression suite** — no video, no weights, no network; plus CI on Ubuntu and Windows ×
   Python 3.10 / 3.12, a dedicated lint job, and a full-install job that resolves the optional backend.
 - **Packaging** — `pip install mono-aeb`, with sdist and wheel attached to each GitHub Release.
+- **Console entry points** — `mono-aeb demo` / `check` / `run` / `calib` (and the equivalent
+  `python -m aeb ...` form) ship with the wheel, so the zero-data demo can be run without cloning
+  the repository.
 - **Benchmarks** — `benchmarks/synth_tracking.py` (synthetic multi-target tracking regression) and
   `benchmarks/bbox_overlaps_bench.py` (the numpy shim's cost versus the compiled path).
 - **Container recipe** — a `Dockerfile` that installs the package with the `dev` extra and runs the
@@ -34,8 +37,6 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 
 Roughly ordered by expected value, not by date.
 
-- **Console entry points** — `mono-aeb --check` / `--demo` / `--calibrate`, so the zero-data demo can
-  be run without cloning the repository. Today the same commands are `python examples/quickstart.py`.
 - **Publishing the container image** — the `Dockerfile` exists and builds locally; pushing it to a
   registry would make `docker run` a one-liner for users.
 - **An ONNX Runtime backend** — would make the `--check` and demo paths usable without `torch` /

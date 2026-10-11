@@ -6,223 +6,21 @@ Usage:
     python examples/quickstart.py --demo --out a.mp4  # write a visualization video
     python examples/quickstart.py --demo --show       # live window
 
-Notes:
-    --demo drives a SyntheticDetector that generates a target closing at constant
-    speed through the full tracking -> ranging -> TTC -> decision chain, with no real
-    video and no detection weights, and prints the NORMAL -> ATTENTION -> FCW -> AEB
-    progression frame by frame. For real video use examples/demo_aeb.py (YOLOv8n
-    detection by default; pass --coco for COCO-pretrained weights).
+This is a thin wrapper kept for source checkouts: the implementation lives in
+`aeb/cli.py` and ships in the wheel, so after `pip install mono-aeb` the same
+commands are `mono-aeb demo` / `mono-aeb check` (or `python -m aeb demo`).
 """
 
 import argparse
-import importlib.util
 import sys
 from pathlib import Path
 
-import numpy as np
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import cv2
-
-from aeb.config import AEBConfig
-from aeb.detectors import BaseDetector
-from aeb.pipeline import AEBPipeline
-from aeb.types import Detection, RiskLevel
-
-# Core dependencies (enough for --demo): needed by tracker / ranging / TTC; no weights.
-CORE_DEPS = {
-    "numpy": "numpy",
-    "cv2": "opencv-python",
-    "scipy": "scipy",
-    "lap": "lap (install lapx instead if no lap wheel exists for your platform)",
-}
-
-LEVEL_COLORS = {
-    RiskLevel.NORMAL: (80, 220, 80),
-    RiskLevel.ATTENTION: (0, 220, 220),
-    RiskLevel.FCW: (0, 140, 255),
-    RiskLevel.AEB_WARNING: (0, 0, 255),
-}
-LEVEL_NAMES = {
-    RiskLevel.NORMAL: "NORMAL",
-    RiskLevel.ATTENTION: "ATTENTION",
-    RiskLevel.FCW: "FCW",
-    RiskLevel.AEB_WARNING: "AEB",
-}
+from aeb.cli import main as cli_main
 
 
-def missing_deps(need_detector: bool = False) -> list:
-    """返回缺失依赖的人话列表；need_detector=True 时额外检查 ultralytics。"""
-    deps = dict(CORE_DEPS)
-    if need_detector:
-        deps["ultralytics"] = "ultralytics"
-    missing = []
-    for mod, pkg in deps.items():
-        if importlib.util.find_spec(mod) is None:
-            missing.append(f"{mod} (pip install {pkg})")
-    return missing
-
-
-class SyntheticDetector(BaseDetector):
-    """--demo 专用：生成一个匀速逼近的目标，驱动完整决策链。
-
-    目标以 v_close 从 d0 匀速逼近，底边 / 框高按地面平面模型反解
-    （y_bottom = horizon + f·H/d，框高 h = f·H_real/d，与相机同高时
-    h = y_bottom − horizon）。这样 DistanceTTC 与 ScaleTTC 对 (t, D) 与
-    (t, 1/h) 的 Theil-Sen 拟合都能恢复 TTC = D/v_close，状态自然升级。
-    """
-
-    def __init__(
-        self,
-        fps: float = 30.0,
-        v_close: float = 10.0,
-        d0: float = 45.0,
-        focal_height: float = 1650.0,
-        horizon: float = 360.0,
-        cx: float = 640.0,
-        aspect: float = 1.2,
-        d_min: float = 5.0,
-    ):
-        self.fps = fps
-        self.v_close = v_close
-        self.d0 = d0
-        self.fh = focal_height
-        self.horizon = horizon
-        self.cx = cx
-        self.aspect = aspect
-        self.d_min = d_min
-        self._frame = 0
-
-    def detect(self, frame: np.ndarray) -> list[Detection]:
-        i = self._frame
-        self._frame += 1
-        t = i / self.fps
-        d = max(self.d0 - self.v_close * t, self.d_min)
-
-        y_bottom = self.horizon + self.fh / d
-        h = self.fh / d  # 与相机同高目标：框高 = 底边到 horizon 的距离
-        w = h * self.aspect
-        x1 = self.cx - w / 2
-        x2 = self.cx + w / 2
-        y1 = y_bottom - h
-        y2 = y_bottom
-        return [
-            Detection(float(x1), float(y1), float(x2), float(y2), 0.9, 2)
-        ]  # score=0.9, class=2 (car)
-
-
-def make_frame() -> np.ndarray:
-    """生成 demo 用的深色背景帧（天空 + 路面 + horizon 线）。"""
-    frame = np.full((720, 1280, 3), (40, 40, 40), np.uint8)
-    frame[360:] = (70, 70, 70)  # 路面略亮
-    cv2.line(frame, (0, 360), (1280, 360), (180, 180, 180), 1)
-    return frame
-
-
-def draw(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
-    """画 ROI + 目标框 + 距离/TTC + 全局风险横幅。"""
-    frame = pipeline.roi.draw(frame, color=(100, 100, 100))
-    risk_by_id = {r.track_id: r for r in result.risks}
-    for t in result.tracks:
-        r = risk_by_id.get(t.track_id)
-        level = r.level if r is not None else RiskLevel.NORMAL
-        color = LEVEL_COLORS[level]
-        x1, y1, x2, y2 = (int(v) for v in t.bbox)
-        label = f"#{t.track_id} car"
-        if r is not None:
-            d = r.distance
-            dist_s = f"{d:.1f}m" if np.isfinite(d) else "inf"
-            ttc_s = f"{r.ttc_fused:.1f}s" if np.isfinite(r.ttc_fused) else "inf"
-            label += f"  d={dist_s} ttc={ttc_s}"
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(
-            frame,
-            label,
-            (x1, max(y1 - 6, 14)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            1,
-            cv2.LINE_AA,
-        )
-
-    g = result.global_level
-    banner = np.full((44, frame.shape[1], 3), 32, dtype=np.uint8)
-    cv2.putText(
-        banner,
-        f"GLOBAL: {LEVEL_NAMES[g]}",
-        (16, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1.0,
-        LEVEL_COLORS[g],
-        2,
-        cv2.LINE_AA,
-    )
-    return np.vstack([banner, frame])
-
-
-def run_demo(args) -> int:
-    missing = missing_deps(need_detector=False)
-    if missing:
-        print("[quickstart] missing dependencies, install them first:")
-        for m in missing:
-            print(f"  - {m}")
-        return 1
-
-    cfg = AEBConfig(fps=args.fps)
-    det = SyntheticDetector(fps=cfg.fps, v_close=args.v_close)
-    pipe = AEBPipeline(cfg, det)
-
-    print(
-        f"[quickstart] ego speed = {cfg.ego_speed_mps:.0f} m/s, "
-        f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s"
-    )
-    print(
-        f"[quickstart] target closing at a constant {args.v_close:.0f} m/s; "
-        "printing the risk state per frame:"
-    )
-
-    writer = None
-    prev_level = None
-    for i in range(args.frames):
-        frame = make_frame()
-        result = pipe.process(frame, i)
-        out = draw(frame, result, pipe)
-
-        level = result.global_level
-        if level != prev_level:
-            r = result.risks[0] if result.risks else None
-            d = r.distance if r is not None else float("inf")
-            ttc = r.ttc_fused if r is not None else float("inf")
-            print(f"  frame {i:3d}: {LEVEL_NAMES[level]:<9s}  d={d:5.1f}m  ttc={ttc:5.2f}s")
-            prev_level = level
-
-        if writer is None and args.out:
-            h, w = out.shape[:2]
-            writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (w, h))
-        if writer is not None:
-            writer.write(out)
-        if args.show:
-            cv2.imshow("mono-aeb demo", out)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-
-    if writer is not None:
-        writer.release()
-    if args.show:
-        # 仅在实际开过窗口时销毁。无 GUI 的 OpenCV 构建（opencv-python-headless，
-        # 常见于服务器 / Docker / CI）里 destroyAllWindows() 不是 no-op，而是抛
-        # cv2.error“The function is not implemented”，因此无头环境必须跳过。
-        cv2.destroyAllWindows()
-    print(
-        f"[quickstart] done, {args.frames} frames"
-        + (f", video written to {args.out}" if args.out else "")
-    )
-    return 0
-
-
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser(description="mono-aeb quickstart")
     ap.add_argument("--demo", action="store_true", default=True, help="synthetic demo (default)")
     ap.add_argument("--check", action="store_true", help="dependency self-check only, no demo")
@@ -236,15 +34,14 @@ def main():
     args = ap.parse_args()
 
     if args.check:
-        core = missing_deps(need_detector=False)
-        det = missing_deps(need_detector=True)
-        print("[quickstart] core dependencies (needed by --demo):")
-        print("  " + ("all set" if not core else "\n  ".join(core)))
-        print("[quickstart] detector dependencies (needed by examples/demo_aeb.py on real video):")
-        print("  " + ("all set" if not det else "\n  ".join(det)))
-        return 0 if not core else 1
-
-    return run_demo(args)
+        return cli_main(["check"])
+    argv = ["demo", "--frames", str(args.frames), "--fps", str(args.fps)]
+    argv += ["--v-close", str(args.v_close)]
+    if args.out:
+        argv += ["--out", args.out]
+    if args.show:
+        argv += ["--show"]
+    return cli_main(argv)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-12
+
+### Added
+
+- **Console entry points that ship with the wheel** — after `pip install mono-aeb` the package can be run immediately: `mono-aeb demo` / `mono-aeb check` / `mono-aeb run` / `mono-aeb calib`, plus the equivalent `python -m aeb ...` form and `mono-aeb --version`. The implementation moved from `examples/` into the package (`aeb/cli.py`, `aeb/__main__.py`; `examples/` is not part of the wheel, so the zero-data demo could previously only be run from a source checkout), and `[project.scripts]` declares the `mono-aeb` command in `pyproject.toml`.
+
+### Changed
+
+- `examples/quickstart.py`, `examples/demo_aeb.py` and `examples/calibrate_video.py` are now thin wrappers that translate the old flag style into the packaged subcommands, so the documented `python examples/... --demo / --check / ...` invocations keep working unchanged from a checkout. No behaviour change: the demo output is byte-identical, and the zero-data test suite passes unmodified.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
@@ -72,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pluggable detector backends: YOLOv8 (`yolo` extra) and D-FINE (`dfine` extra) behind a common `BaseDetector` interface.
 - Zero-data test suite (12 cases) and GitHub Actions CI (Ubuntu / Windows × Python 3.10 / 3.12).
 
-[Unreleased]: https://github.com/H12Y10/mono-aeb/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/H12Y10/mono-aeb/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/H12Y10/mono-aeb/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/H12Y10/mono-aeb/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/H12Y10/mono-aeb/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/H12Y10/mono-aeb/compare/v0.1.0...v0.1.1
