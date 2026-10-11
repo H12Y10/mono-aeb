@@ -1,11 +1,12 @@
-"""逐视频离线自标定 CLI：GPS ego 速度 + 免标定尺度 TTC → 反解测距尺度 f·H。
+"""Per-video offline self-calibration CLI: GPS ego speed + scale TTC -> ranging scale f·H.
 
-用法：
-    python calibrate_video.py --stem 0571873b-faf718b2
-    python calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
+Usage:
+    python examples/calibrate_video.py --stem 0571873b-faf718b2
+    python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
 
-跑一遍视频，对“静止目标”用 f·H = v_ego·τ·(y_bottom − horizon) 反解，
-取中位数作为该视频的测距尺度，并与默认占位 1100×1.5=1650 对比。
+Runs one pass over the video and inverse-solves f·H = v_ego·τ·(y_bottom − horizon) from
+approximately stationary targets, taking the median as this video's ranging scale and
+comparing it against the placeholder default 1100 x 1.5 = 1650.
 """
 
 import argparse
@@ -27,9 +28,9 @@ WEIGHTS = "yolov8n.pt"
 
 
 def main():
-    ap = argparse.ArgumentParser(description="逐视频离线自标定 f·H")
-    ap.add_argument("--video", type=str, default=None, help="视频完整路径")
-    ap.add_argument("--stem", type=str, default=None, help="samples-1k/videos 下的片段 stem")
+    ap = argparse.ArgumentParser(description="per-video offline self-calibration of f·H")
+    ap.add_argument("--video", type=str, default=None, help="full path to the video")
+    ap.add_argument("--stem", type=str, default=None, help="clip stem under samples-1k/videos")
     ap.add_argument("--weights", type=str, default=WEIGHTS)
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--max-frames", type=int, default=None)

@@ -1,20 +1,23 @@
-"""bbox_overlaps_bench.py — 纯 numpy `bbox_overlaps` 替身的性能代价基准（A3）。
+"""bbox_overlaps_bench.py — performance cost of the pure-numpy `bbox_overlaps` shim.
 
-为什么存在：cython_bbox 在 Windows 上需 MSVC 编译、常装不上，故仓库用纯 numpy
-替身（aeb/tracker/byte_shims/cython_bbox.py）顶替 ByteTrack 的 `bbox_overlaps`，
-换来“免编译、pip 直装”。但“免编译”的代价是性能——本基准把这个代价量化出来，
-回答评审“纯 numpy 替身慢多少”的问题。
+Why it exists: the compiled `cython_bbox` extension needs an MSVC build on Windows and
+often cannot be installed, so this repository substitutes a pure-numpy implementation
+(`aeb/tracker/byte_shims/cython_bbox.py`) for ByteTrack's `bbox_overlaps`, keeping
+"no compiler, plain pip install". This benchmark quantifies that trade-off.
 
-测法（零重写数值逻辑，直接 import 生产代码用的那个函数）：
-  1) 对 N ∈ {10, 100, 1000, 5000}（框数，N×N 两两 IoU），各跑多轮取最快，测纯 numpy shim；
-  2) 若本机可 import 真 `cython_bbox`（编译版），同规模对比并报加速比；不可装则如实说明
-     “需 MSVC 编译，这正是用 shim 的原因”，不臆造对比；
-  3) 端到端视角：报“真实规模”（检测框 × 跟踪框 ≈ 30×30）下单次 IoU 匹配的耗时，
-     对照 30 FPS 每帧 33 ms 预算，给出诚实结论（shim 的代价占帧预算的比例）。
+Method (no re-implementation: it imports the exact function the production code uses):
+  1) for N in {10, 100, 1000, 5000} (N x N pairwise IoU), take the fastest of several
+     runs, measuring the pure-numpy shim;
+  2) if the compiled `cython_bbox` is importable in this environment, compare at the
+     same sizes and report the speed-up; if not, say so plainly ("it needs an MSVC
+     build -- which is exactly why the shim exists") rather than inventing a number;
+  3) end-to-end view: the cost of one IoU matching call at a realistic scale
+     (detections x tracks ~= 30 x 30), against the 33 ms per-frame budget at 30 FPS.
 
-口径：合成随机框、无真实检测分布，结论只写“合成规模下的计时”，不做外推。
+Scope: synthetic random boxes, not a real detection distribution; the report is the
+measured timing at these synthetic sizes only, with no extrapolation.
 
-用法：
+Usage:
     python benchmarks/bbox_overlaps_bench.py
 """
 
@@ -51,8 +54,8 @@ def _timeit(fn, boxes, query, repeats=5):
 
 def main():
     sizes = [10, 100, 1000, 5000]
-    print("纯 numpy `bbox_overlaps` 替身 计时（N×N 两两 IoU，取 5 轮最快）")
-    print(f"{'N':>6} {'shim 耗时(ms)':>14}")
+    print("pure-numpy `bbox_overlaps` shim timing (N x N pairwise IoU, fastest of 5 runs)")
+    print(f"{'N':>6} {'shim (ms)':>14}")
 
     for n in sizes:
         boxes = _rand_boxes(n, seed=0)
@@ -65,8 +68,8 @@ def main():
         import cython_bbox as _cb
 
         cb = _cb.bbox_overlaps
-        print("\n本机已装编译版 cython_bbox，对比：")
-        print(f"{'N':>6} {'numpy shim(ms)':>14} {'cython(ms)':>12} {'加速比':>8}")
+        print("\ncompiled cython_bbox is importable here; comparison:")
+        print(f"{'N':>6} {'numpy shim (ms)':>16} {'cython (ms)':>12} {'speedup':>8}")
         for n in sizes:
             boxes = _rand_boxes(n, seed=0)
             query = _rand_boxes(n, seed=1)
@@ -74,8 +77,9 @@ def main():
             t_cb = _timeit(cb, boxes, query) * 1000
             print(f"{n:>6} {t_shim:>14.3f} {t_cb:>12.3f} {t_shim / t_cb:>7.1f}x")
     except ImportError:
-        print("\n本机未装编译版 cython_bbox（需 MSVC 编译）——这正是仓库用纯 numpy 替身的原因。")
-        print("故无直接对比；下面只报端到端占比。")
+        print("\ncompiled cython_bbox is not installed here (it needs an MSVC build) --")
+        print("which is exactly why the pure-numpy shim exists. No direct comparison;")
+        print("only the end-to-end share below.")
 
     # 端到端视角：真实规模（检测框 × 跟踪框 ≈ 30×30）
     n_real = 30
@@ -83,8 +87,11 @@ def main():
     query = _rand_boxes(n_real, seed=1)
     t_real = _timeit(bbox_overlaps, boxes, query) * 1000
     frame_budget = 1000 / 30.0  # 33.3 ms @ 30 FPS
-    print(f"\n端到端：真实规模 {n_real}×{n_real} 单次 IoU 匹配 = {t_real:.3f} ms")
-    print(f"占 30 FPS 每帧预算（{frame_budget:.1f} ms）的 {t_real / frame_budget * 100:.2f}%")
+    share = t_real / frame_budget * 100
+    print(f"\nend-to-end: one IoU matching call at {n_real}x{n_real} (realistic scale)")
+    print(
+        f"  {t_real:.3f} ms = {share:.2f}% of the {frame_budget:.1f} ms per-frame budget at 30 FPS"
+    )
 
 
 if __name__ == "__main__":

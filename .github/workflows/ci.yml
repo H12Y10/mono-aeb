@@ -6,14 +6,16 @@ on:
   pull_request:
   workflow_dispatch:
 
-# 统一 UTF-8：示例脚本会输出中文，而 Windows runner 默认 cp1252，
-# 不加这个会让 print 直接抛 UnicodeEncodeError；顺带让日志可读。
+# Force UTF-8 for all steps: Windows runners default to cp1252, while non-ASCII text
+# can still reach stdout — test diagnostics, messages coming from third-party
+# libraries, user-supplied file paths — where print() would then raise
+# UnicodeEncodeError.
 env:
   PYTHONUTF8: "1"
 
 jobs:
   core-tests:
-    name: 核心链路测试（${{ matrix.os }} / py${{ matrix.python-version }}）
+    name: core tests (${{ matrix.os }} / py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -21,16 +23,18 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
-      # 只装“零数据 demo + 核心链路”所需依赖：检测后端是可选 extra（ultralytics → torch ~2GB），
-      # --check / --demo / 测试套件都不需要，故不装；--no-deps 用于显式装 headless opencv 并回退 lapx。
-      # 缺少 lap wheel 时按 README 改装 lapx（其提供的模块名即 lap）；第 38 行即安装期替换。
-      - name: 安装核心依赖
+      # Install only what the zero-data demo and the core chain need: the detector
+      # backends are optional extras (ultralytics -> torch, ~2 GB) that neither
+      # --check / --demo nor the test suite uses. --no-deps installs the package
+      # without resolving dependencies, because the headless OpenCV is pinned above
+      # and lap falls back to lapx (which provides the module name `lap`).
+      - name: Install core dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
@@ -38,58 +42,59 @@ jobs:
           pip install lap || pip install lapx
           pip install -e . --no-deps
 
-      - name: 依赖自检
+      - name: Dependency self-check
         run: python examples/quickstart.py --check
 
-      - name: 零数据 demo（NORMAL → ATTENTION → FCW → AEB）
+      - name: Zero-data demo (NORMAL -> ATTENTION -> FCW -> AEB)
         run: python examples/quickstart.py --demo
 
-      - name: pytest（含覆盖率表）
+      - name: pytest (with coverage table)
         run: pytest -q --cov=aeb --cov-report=term-missing
 
   full-install:
-    name: 完整安装路径（含可选检测后端 yolo + dev extra）
+    name: full install (yolo + dev extras)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      # 走完整依赖解析（含 yolo extra 的 ultralytics → torch），并带上 dev extra（pytest）；
-      # 若只装 `-e .` 则没有检测后端，也没有 pytest。
+      # Full dependency resolution, including the yolo extra (ultralytics -> torch)
+      # and the dev extra (pytest); a plain `-e .` would install neither.
       - name: pip install -e ".[yolo,dev]"
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[yolo,dev]"
 
-      - name: YOLOv8 后端可导入
-        run: python -c "from aeb.detectors import YOLOv8Detector, COCO_TO_AEB; print('YOLOv8 后端 OK')"
+      - name: YOLOv8 backend importable
+        run: python -c "from aeb.detectors import YOLOv8Detector, COCO_TO_AEB; print('YOLOv8 backend OK')"
 
-      - name: 依赖自检（检测依赖亦应就绪）
+      - name: Dependency self-check (detector dependencies present)
         run: python examples/quickstart.py --check
 
-      - name: pytest（含覆盖率表）
+      - name: pytest (with coverage table)
         run: pytest -q --cov=aeb --cov-report=term-missing
 
   lint:
-    name: Lint 与格式化（ruff）
+    name: lint & format (ruff)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      # 版本固定在 pyproject.toml / .pre-commit-config.yaml 的同一版本，
-      # 避免 ruff 升级后规则集漂移导致 CI 无故变红。
-      - name: 安装 ruff
+      # The ruff version is pinned here and in .pre-commit-config.yaml (rev), so the
+      # two stay on the same rule set; pyproject.toml only configures the rules and
+      # pins no version.
+      - name: Install ruff
         run: pip install ruff==0.16.10
 
-      - name: ruff check（lint）
+      - name: ruff check (lint)
         run: ruff check --output-format=github .
 
-      - name: ruff format --check（格式化）
+      - name: ruff format --check (formatting)
         run: ruff format --check .

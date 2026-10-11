@@ -1,19 +1,22 @@
-"""零数据合成跟踪基准：已知真值轨迹喂 ByteTrack，量化 ID 稳定性与召回。
+"""Synthetic tracking benchmark (zero data): known-ground-truth tracks through ByteTrack.
 
-为什么存在（诚实补缺口）：真实视频的跟踪评测（HOTA/MOTA/IDF1）需要 BDD100K MOT
-跟踪真值（box_track），受“仅学术/非商业、禁止再分发”许可限制、且本机不一定持有，
-无法随仓库做零数据回归。本基准用“已知 GT 轨迹的合成多目标”验证跟踪器接线正确、
-可回归，覆盖三件事：
-  - 类别分库是否生效（car / person / rider 不会互相串 id）
-  - 干净检测下 ID 是否稳定（ID switch = 0）
-  - 目标短暂丢失后能否被 track_buffer 接回（可选遮挡场景）
+Why it exists: scoring real-video tracking (HOTA / MOTA / IDF1) needs the BDD100K MOT
+ground truth (box_track), which is academic / non-commercial use only and neither
+redistributable nor guaranteed to be present, so it can never belong to the default
+(zero-data) regression suite. Instead, this benchmark drives the tracker with synthetic
+multi-target trajectories whose ground truth is known, checking three things:
+  - per-class trackers stay separate (car / person / rider never share ids);
+  - ids are stable under clean detections (ID switch = 0);
+  - a target that disappears for a few frames is re-associated within track_buffer
+    (optional occlusion scenario).
 
-口径：合成场景理想、无真实遮挡噪声，结论只能写“合成场景下的可回归基准”，
-不得外推为真实跟踪精度。真实指标见 benchmarks/tracking_eval.py（需 BDD100K MOT GT）。
+Scope: the synthetic scene is ideal -- no real occlusion or detection noise -- so the
+numbers below describe this synthetic regression only; they are not real tracking
+accuracy and must not be quoted as such.
 
-用法：
-    python benchmarks/synth_tracking.py                 # 干净场景
-    python benchmarks/synth_tracking.py --occlude 10    # 目标 0 消失 10 帧再出现
+Usage:
+    python benchmarks/synth_tracking.py                 # clean scene
+    python benchmarks/synth_tracking.py --occlude 10    # target 0 disappears for 10 frames
 """
 
 from __future__ import annotations
@@ -144,10 +147,10 @@ def run_benchmark(tracker, frames_list, warmup=10):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="零数据合成跟踪基准")
+    ap = argparse.ArgumentParser(description="synthetic tracking benchmark (zero data)")
     ap.add_argument("--frames", type=int, default=90)
     ap.add_argument("--noise", type=float, default=0.0)
-    ap.add_argument("--occlude", type=int, default=0, help="目标 0 消失帧数（测 track_buffer）")
+    ap.add_argument("--occlude", type=int, default=0, help="frames for which target 0 disappears")
     args = ap.parse_args()
 
     targets = make_targets()
@@ -157,10 +160,14 @@ def main():
     frames = list(gen_frames(targets, args.frames, noise=args.noise))
     tracker = ByteTrackTracker(fps=30.0)
     m = run_benchmark(tracker, frames)
-    print("合成跟踪基准（零数据，不可外推为真实跟踪精度）")
-    print(f"  目标数={m['gt_targets']}  帧={args.frames}  噪声={args.noise}  遮挡={args.occlude}")
+    print("synthetic tracking benchmark (zero data; not real tracking accuracy)")
     print(
-        f"  ID switch = {m['id_switches']}   召回 = {m['recall']:.3f}  （评估对 {m['eval_pairs']}）"
+        f"  targets={m['gt_targets']}  frames={args.frames}  "
+        f"noise={args.noise}  occlude={args.occlude}"
+    )
+    print(
+        f"  ID switches = {m['id_switches']}   recall = {m['recall']:.3f}  "
+        f"(over {m['eval_pairs']} pairs)"
     )
 
 

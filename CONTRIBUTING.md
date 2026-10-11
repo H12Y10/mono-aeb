@@ -24,7 +24,8 @@ cd mono-aeb
 python -m venv .venv
 . .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-pre-commit install            # optional, but recommended
+pip install pre-commit        # optional, but recommended
+pre-commit install
 pytest -q --cov=aeb --cov-report=term-missing
 ```
 
@@ -37,7 +38,7 @@ CI on every platform and in a container.
 - A change that makes `pytest` require a dataset or a detector backend will not be accepted as-is.
 - If your work needs weights or video, put it behind an optional extra
   (`[project.optional-dependencies]`) or add it as a benchmark script that skips when the inputs are
-  absent — see `benchmarks/` for the pattern.
+  absent, rather than into the default suite.
 - Test data is generated in-process (synthetic boxes, synthetic closing trajectories). Prefer that
   over committing fixtures.
 
@@ -59,7 +60,8 @@ Treat these as an API. Changing one is a breaking change and needs a clear descr
 | --- | --- | --- |
 | `Detection` / `Track` / `RiskFeature` / `RiskLevel` | `aeb/types.py` | plain dataclasses / `IntEnum` |
 | `BaseDetector` | `aeb/detectors/base.py` | the detector-agnostic interface |
-| Default thresholds and geometry | `aeb/config.py` | `t_react`, `a_max`, `d_safe`, `history_len`, `persist_k`, `fps`, ego-path trapezoid |
+| Default thresholds and geometry | `aeb/config.py` | `t_react`, `a_max`, `friction_mu`, `d_safe`, `history_len`, `persist_k`, `fps`, ego-path trapezoid |
+| Friction → deceleration table | `aeb/friction.py` | `A_EFF_TABLE` / `a_eff_for_mu` (measured values, endpoints clamp, no extrapolation) |
 | CLI flags and output text | `examples/*.py` | user-facing; keep output in English |
 
 ## Adding a detector backend

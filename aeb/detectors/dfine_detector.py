@@ -62,7 +62,8 @@ class DFineDetector(BaseDetector):
 
         if not _DFINE_ROOT:
             raise RuntimeError(
-                "未设置 DFINE_ROOT 环境变量（D-FINE 上游仓库路径），无法加载 D-FINE 后端"
+                "DFINE_ROOT is not set (path to the D-FINE upstream repository); "
+                "cannot load the D-FINE backend"
             )
         if str(_DFINE_ROOT) not in sys.path:
             sys.path.insert(0, str(_DFINE_ROOT))
@@ -71,7 +72,8 @@ class DFineDetector(BaseDetector):
         weights = weights or _DEFAULT_WEIGHTS
         if not weights:
             raise RuntimeError(
-                "未提供 D-FINE 权重：请传 weights 参数或设置 MONO_AEB_DFINE_WEIGHTS 环境变量"
+                "No D-FINE weights provided: pass the weights argument "
+                "or set the MONO_AEB_DFINE_WEIGHTS environment variable"
             )
         config = (
             Path(config)

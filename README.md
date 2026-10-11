@@ -18,6 +18,7 @@ The two core strengths are **calibration-free scale TTC** — which relies only 
 - **Calibration-free scale TTC** — `τ = s / ṡ`, estimated via a Theil–Sen robust fit of `(t, 1/s)`; no camera calibration required.
 - **Distance TTC + fusion** — a ground-plane ranging model recovers closing speed, fused with scale TTC by taking the minimum, with a `persist_k` frame hold to suppress jitter.
 - **Speed-adaptive thresholds** — `τ_AEB(v) = t_react + v / (2·a_max)`, with fixed lead margins for FCW / ATTENTION on top; the whole decision gradient shifts with ego speed.
+- **Friction-aware thresholds (opt-in)** — set `RiskThresholds.friction_mu` and the same formula uses a measured `a_eff(μ)` table (`aeb/friction.py`) instead of the dry-road `a_max`, so low-friction surfaces trigger earlier; the default (`None`) keeps the fixed-`a_max` behaviour bit-for-bit.
 - **Per-video self-calibration** — jointly estimates the ranging scale `f·H` and the horizon `horizon_y` from GPS ego speed + calibration-free scale TTC, removing the per-video camera-parameter inconsistency in BDD100K.
 - **Bundled ByteTrack** — the tracker is vendored into the package (`aeb/tracker/vendor/bytetrack/`) and distributed with the wheel; no separate installation needed.
 
@@ -171,8 +172,10 @@ Or pass the arguments directly in code:
 ```python
 from aeb.detectors import DFineDetector
 
-det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfine_hgnetv2_m_aeb.yml
+det = DFineDetector(weights="/path/to/best_stg1.pth")
 ```
+
+The `config` argument defaults to `<DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_aeb.yml`; pass `config=...` to use another file.
 
 > **Note**: D-FINE's finetuned weights are trained on BDD100K and are subject to that dataset's license (see below); they are not distributed with this repository.
 
@@ -183,7 +186,7 @@ det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfin
 > **Compliance note**: this repository does not contain any model weights or BDD100K videos/annotations.
 
 - **COCO-pretrained YOLOv8 weights** (e.g. `yolov8n.pt`) are provided by ultralytics and obtained under ultralytics' license.
-- **AEB-finetuned weights** (YOLOv8 or D-FINE) are finetuned on BDD100K, whose license is "academic/non-commercial use only, no redistribution of raw data". These weights are therefore not published here; they are distributed on a restricted basis (on request). Anyone with legitimate data and license access can reproduce them with this repository's training configuration.
+- **AEB-finetuned weights** (YOLOv8 or D-FINE) are finetuned on BDD100K, whose license is "academic/non-commercial use only, no redistribution of raw data". These weights are therefore not published here; they are distributed on a restricted basis (on request). With legitimate data and license access they can be reproduced by training the upstream detector on a 7-class AEB dataset, then pointing the backend at the resulting config and weights (`DFINE_ROOT` / `MONO_AEB_DFINE_WEIGHTS` for D-FINE). This repository does not ship a training configuration.
 
 ---
 
@@ -193,6 +196,7 @@ det = DFineDetector(weights="/path/to/best_stg1.pth")  # config defaults to dfin
 mono-aeb/
 ├── aeb/
 │   ├── config.py           # camera / ego-path / risk thresholds / detection & tracking params
+│   ├── friction.py         # measured μ → a_eff table for friction-aware thresholds
 │   ├── types.py            # Detection / Track / RiskFeature / RiskLevel contracts
 │   ├── pipeline.py         # AEBPipeline main chain
 │   ├── calibration.py      # per-video self-calibration (joint f·H & horizon estimation)
@@ -208,9 +212,17 @@ mono-aeb/
 │   ├── quickstart.py       # one-shot demo (--demo / --check)
 │   ├── demo_aeb.py         # offline real-video demo
 │   └── calibrate_video.py  # per-video self-calibration CLI
+├── tests/                  # zero-data test suite (no video / weights / network)
+├── benchmarks/             # synthetic tracking benchmark, bbox_overlaps shim cost
+├── .github/workflows/      # CI (tests / lint) and Release (tag → GitHub Release, PyPI)
+├── Dockerfile              # python:3.12-slim + dev extra, runs the zero-data suite
+├── CONTRIBUTING.md
+├── ROADMAP.md
+├── CHANGELOG.md
 ├── pyproject.toml
 ├── LICENSE
-└── README.md
+├── README.md               # this file (English, primary)
+└── README.zh-CN.md         # Chinese counterpart
 ```
 
 ---
@@ -267,6 +279,15 @@ $$
 
 Defaults are in `aeb/config.py` (`t_react=0.5`, `a_max=6.86 m/s²`, `d_safe=5.0 m`, `history_len=10`, `persist_k=3`, `fps=30`).
 
+With `RiskThresholds.friction_mu` set, `a_max` is replaced by a measured effective deceleration `a_eff(μ)` from `aeb/friction.py` — 10 measured points over `μ ∈ [0.4, 3.5]` (measurement protocol in that module's docstring). Values outside the range clamp to the nearest endpoint (no extrapolation) and the result is capped at `a_max`, so high-friction surfaces behave exactly like the fixed-`a_max` formula:
+
+```python
+from aeb.config import AEBConfig
+
+cfg = AEBConfig()  # fixed dry-road a_max
+cfg.risk.friction_mu = 0.6  # low-friction surface: a_eff(0.6) = 3.566 m/s², triggers earlier
+```
+
 ---
 
 ## Per-video calibration
@@ -293,7 +314,7 @@ python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov -
 Zero-data test suite: no video, detection weights, or network needed — only the core dependencies (numpy / scipy / opencv-python / lap).
 
 ```bash
-pip install -e ".[dev]"     # or just pip install pytest
+pip install -e ".[dev]"     # or: pip install pytest pytest-cov (--cov needs pytest-cov)
 pytest -q --cov=aeb --cov-report=term-missing
 ```
 
@@ -305,8 +326,9 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_tracking_synth.py` | synthetic multi-target tracking regression: 3 targets keep stable ids (0 ID switches, recall ≥ 0.95) in a clean scene, and a target absent for 10 frames (< `track_buffer=30`) is re-associated to the same id |
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
+| `tests/test_friction_table.py` | friction-aware thresholds: the measured μ→`a_eff` table (exact nodes, interpolation, endpoint clamping without extrapolation, cap at `a_max`, NaN rejected) and `friction_mu=None` staying bit-identical to the fixed-`a_max` formula |
 
-**Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-09 on `v0.1.2`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85% — while `detectors/*` and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the full per-module table on every run.
+**Coverage**: the zero-data suite covers **71%** of `aeb/` overall (measured 2026-10-11 on `v0.2.0`); the decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85%, `friction.py` 100% — while the detector implementation modules (`detectors/dfine_detector.py`, `detectors/yolov8_detector.py`) and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the per-module table on every run (fully covered files are skipped).
 
 **Lint / formatting**: [`ruff`](https://github.com/astral-sh/ruff), configured in `pyproject.toml` (the vendored ByteTrack subset is excluded; CJK punctuation in comments is allowed), plus a [`pre-commit`](https://pre-commit.com/) hook set in `.pre-commit-config.yaml`. Run `pip install pre-commit && pre-commit install` to enable it locally; a dedicated CI job runs `ruff check` and `ruff format --check`.
 

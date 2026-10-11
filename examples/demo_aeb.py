@@ -1,8 +1,8 @@
-"""AEB 链路离线 demo：视频 / 图片序列 → 检测+跟踪+测距+TTC+决策 → 可视化。
+"""Offline AEB chain demo: video / image sequence -> detect+track+range+TTC+decide -> visualize.
 
-用法：
-    python demo_aeb.py --source 视频.mp4 --weights yolov8n.pt --out out.mp4
-    python demo_aeb.py --source ./frames_dir --fps 30 --show
+Usage:
+    python examples/demo_aeb.py --source video.mp4 --weights yolov8n.pt --out out.mp4
+    python examples/demo_aeb.py --source ./frames_dir --fps 30 --show
 """
 
 import argparse
@@ -106,37 +106,45 @@ def draw(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="AEB 链路离线 demo")
-    ap.add_argument("--source", required=True, help="视频文件或图片目录")
+    ap = argparse.ArgumentParser(description="offline AEB chain demo")
+    ap.add_argument("--source", required=True, help="video file or image directory")
     ap.add_argument(
         "--weights",
         default="yolov8n.pt",
-        help="检测权重；默认 COCO 预训练 yolov8n.pt（配合 --coco），AEB 精调权重另传",
+        help="detection weights; the default yolov8n.pt is COCO-pretrained (use with --coco); "
+        "pass AEB-finetuned weights otherwise",
     )
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--device", default="0")
     ap.add_argument("--fps", type=float, default=30.0)
     ap.add_argument(
-        "--coco", action="store_true", help="权重是 COCO 预训练（如 yolov8n.pt），做 COCO→AEB 映射"
+        "--coco",
+        action="store_true",
+        help="weights are COCO-pretrained (e.g. yolov8n.pt): map COCO classes to the AEB ones",
     )
     ap.add_argument(
-        "--detector", choices=["yolo", "dfine"], default="yolo", help="检测器：yolo（默认）或 dfine"
+        "--detector",
+        choices=["yolo", "dfine"],
+        default="yolo",
+        help="detector backend: yolo (default) or dfine",
     )
     ap.add_argument(
         "--dfine-weights",
         default=None,
-        help="D-FINE 权重路径；缺省用 MONO_AEB_DFINE_WEIGHTS 环境变量",
+        help="D-FINE weights path; defaults to the MONO_AEB_DFINE_WEIGHTS environment variable",
     )
     ap.add_argument(
-        "--dfine-config", default=None, help="D-FINE 配置 yaml；缺省用 dfine_hgnetv2_m_aeb.yml"
+        "--dfine-config",
+        default=None,
+        help="D-FINE config yaml; defaults to <DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_aeb.yml",
     )
-    ap.add_argument("--out", default=None, help="输出视频路径（可选）")
-    ap.add_argument("--show", action="store_true", help="实时显示")
+    ap.add_argument("--out", default=None, help="output video path (optional)")
+    ap.add_argument("--show", action="store_true", help="show a live window")
     ap.add_argument(
         "--ego-speed",
         type=float,
         default=None,
-        help="自车速度 m/s；默认自动从 samples-1k/info/*.json 读 GPS 速度",
+        help="ego speed in m/s; by default the GPS speed is read from samples-1k/info/*.json",
     )
     args = ap.parse_args()
 

@@ -50,7 +50,8 @@ def _ensure_importable():
         raise RuntimeError(
             f"ByteTrack source is unavailable ({root} not found): "
             "the in-package vendored copy is missing; reinstall this package; "
-            "若设置了 BYTETRACK_ROOT，请确认它指向 ByteTrack 仓库根目录（内含 yolox/tracker/）"
+            "if BYTETRACK_ROOT is set, make sure it points to the ByteTrack repository "
+            "root (containing yolox/tracker/)"
         )
     for p in (_SHIM_DIR, root):
         if str(p) not in sys.path:

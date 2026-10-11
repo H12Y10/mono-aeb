@@ -18,6 +18,7 @@ A detector-agnostic monocular AEB/FCW pipeline: detection → tracking → in-pa
 - **免标定尺度 TTC**：`τ = s / ṡ`，对 `(t, 1/s)` 做 Theil-Sen 稳健拟合，无需相机标定。
 - **距离 TTC + 融合**：地面平面测距反推接近速度，与尺度 TTC 取最小值，`persist_k` 帧保持抑制抖动。
 - **速度自适应阈值**：`τ_AEB(v) = t_react + v / (2·a_max)`，FCW / ATTENTION 在此之上加固定前置余量，整条决策梯度随车速平移。
+- **路面附着自适应阈值（可选）**：配置 `RiskThresholds.friction_mu` 后，同一公式中的 `a_max` 换成实测表 `a_eff(μ)`（`aeb/friction.py`），低附着路面触发更早；默认 `None` 时与固定 `a_max` 行为逐位一致。
 - **逐视频自标定**：用 GPS ego 速度 + 免标定尺度 TTC 联合反解测距尺度 `f·H` 与地平线 `horizon_y`，消除 BDD100K 逐视频相机参数不一致的问题。
 - **内置 ByteTrack**：跟踪器已 vendored 进包内（`aeb/tracker/vendor/bytetrack/`），随 wheel 一起分发，无需额外安装。
 
@@ -174,8 +175,10 @@ python examples/demo_aeb.py --source 视频.mp4 --detector dfine
 ```python
 from aeb.detectors import DFineDetector
 
-det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_hgnetv2_m_aeb.yml
+det = DFineDetector(weights="/path/to/best_stg1.pth")
 ```
+
+`config` 参数缺省用 `<DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_aeb.yml`；换别的文件传 `config=...`。
 
 > **注意**：D-FINE 的微调权重基于 BDD100K 训练，受该数据许可约束（见下），不随本仓库公开。
 
@@ -186,7 +189,7 @@ det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_
 > **合规提示**：本仓库不包含任何模型权重与 BDD100K 原始视频/标注。
 
 - **COCO 预训练 YOLOv8 权重**（如 `yolov8n.pt`）由 ultralytics 提供，按 ultralytics 的许可获取。
-- **AEB 精调权重**（YOLOv8 或 D-FINE）基于 BDD100K 微调，而 BDD100K 许可为“仅学术 / 非商业使用、禁止再分发原始数据”。因此这些权重不随本仓库公开，走受限分发（申请获取）。需要者在取得合法数据与许可后，可用本仓库的训练配置自行复现。
+- **AEB 精调权重**（YOLOv8 或 D-FINE）基于 BDD100K 微调，而 BDD100K 许可为“仅学术 / 非商业使用、禁止再分发原始数据”。因此这些权重不随本仓库公开，走受限分发（申请获取）。需要者在取得合法数据与许可后，可用上游检测器在 7 类 AEB 数据集上训练复现，再把后端指向训练产出的 config 与权重（D-FINE 走 `DFINE_ROOT` / `MONO_AEB_DFINE_WEIGHTS`）。本仓库不附带训练配置。
 
 ---
 
@@ -196,6 +199,7 @@ det = DFineDetector(weights="/path/to/best_stg1.pth")  # config 缺省用 dfine_
 mono-aeb/
 ├── aeb/
 │   ├── config.py           # 相机 / 自车路径 / 风险阈值 / 检测跟踪参数
+│   ├── friction.py         # 实测 μ → a_eff 表（附着自适应阈值用）
 │   ├── types.py            # Detection / Track / RiskFeature / RiskLevel 契约
 │   ├── pipeline.py         # AEBPipeline 主链路
 │   ├── calibration.py      # 逐视频自标定（f·H 与 horizon 联合反解）
@@ -211,9 +215,17 @@ mono-aeb/
 │   ├── quickstart.py       # 一键 demo（--demo / --check）
 │   ├── demo_aeb.py         # 真实视频离线 demo
 │   └── calibrate_video.py  # 逐视频自标定 CLI
+├── tests/                  # 零数据测试套件（不要视频 / 权重 / 网络）
+├── benchmarks/             # 合成跟踪基准、bbox_overlaps 替身代价基准
+├── .github/workflows/      # CI（测试 / lint）与 Release（tag → GitHub Release、PyPI）
+├── Dockerfile              # python:3.12-slim + dev extra，默认跑零数据套件
+├── CONTRIBUTING.md
+├── ROADMAP.md
+├── CHANGELOG.md
 ├── pyproject.toml
 ├── LICENSE
-└── README.md
+├── README.md               # 英文主文档
+└── README.zh-CN.md         # 本文件
 ```
 
 ---
@@ -270,6 +282,15 @@ $$
 
 默认参数见 `aeb/config.py`（`t_react=0.5`、`a_max=6.86 m/s²`、`d_safe=5.0 m`、`history_len=10`、`persist_k=3`、`fps=30`）。
 
+配置 `RiskThresholds.friction_mu` 后，`a_max` 由 `aeb/friction.py` 的实测有效制动减速度 `a_eff(μ)` 替代——`μ ∈ [0.4, 3.5]` 共 10 个实测点（测量协议见该模块 docstring）。超出范围取端点值（不外推），结果钳制到 ≤ `a_max`，因此高附着路面与固定 `a_max` 公式行为完全一致：
+
+```python
+from aeb.config import AEBConfig
+
+cfg = AEBConfig()  # 固定干地设计值 a_max
+cfg.risk.friction_mu = 0.6  # 低附着路面：a_eff(0.6) = 3.566 m/s²，触发更早
+```
+
 ---
 
 ## 逐视频标定
@@ -296,7 +317,7 @@ python examples/calibrate_video.py --video /path/to/samples-1k/videos/xxxx.mov -
 零数据测试套件：不需要视频、检测权重或网络，仅需核心依赖（numpy / scipy / opencv-python / lap）。
 
 ```bash
-pip install -e ".[dev]"     # 或单独 pip install pytest
+pip install -e ".[dev]"     # 或单独装：pip install pytest pytest-cov（--cov 需要 pytest-cov）
 pytest -q --cov=aeb --cov-report=term-missing
 ```
 
@@ -308,8 +329,9 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_tracking_synth.py` | 合成多目标跟踪回归：干净场景下 3 个目标 id 稳定（0 次 ID 切换、召回 ≥ 0.95）；目标消失 10 帧（< `track_buffer=30`）后接回同一 id |
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
+| `tests/test_friction_table.py` | 附着自适应阈值：实测 μ→`a_eff` 表（节点值精确、区间线性插值、端点不外推、钳制 ≤ `a_max`、NaN 报错），以及 `friction_mu=None` 与固定 `a_max` 公式逐位一致 |
 
-**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-09 在 `v0.1.2` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%——而 `detectors/*` 与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表。
+**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **71%**（2026-10-11 在 `v0.2.0` 上实测）；决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%、`friction.py` 100%——而检测器实现模块（`detectors/dfine_detector.py`、`detectors/yolov8_detector.py`）与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表（完全覆盖的文件会跳过）。
 
 **Lint / 格式化**：使用 [`ruff`](https://github.com/astral-sh/ruff)，配置在 `pyproject.toml`（排除 vendored ByteTrack 子集；允许注释中的中文标点），另配 [`pre-commit`](https://pre-commit.com/) 钩子（`.pre-commit-config.yaml`）。本地启用：`pip install pre-commit && pre-commit install`；CI 有独立 job 跑 `ruff check` 与 `ruff format --check`。
 

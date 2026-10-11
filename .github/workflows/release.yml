@@ -1,8 +1,9 @@
 name: Release
 
-# 打 tag（v*）时构建 sdist/wheel 并挂到对应的 GitHub Release；
-# 若要发布到 PyPI，需先在 PyPI 侧配置 Trusted Publisher，再手动触发本工作流
-# （workflow_dispatch）——“推 tag”本身不会自动上传 PyPI。
+# On a v* tag: build the sdist and wheel and attach both to the matching GitHub
+# Release. Publishing to PyPI is separate: configure the Trusted Publisher on PyPI,
+# then trigger this workflow manually (workflow_dispatch) — a tag push never uploads
+# to PyPI by itself.
 on:
   push:
     tags: ["v*"]
@@ -13,65 +14,67 @@ permissions:
 
 jobs:
   build:
-    name: 构建 sdist + wheel
+    name: build sdist + wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: 构建
+      - name: Build
         run: |
           python -m pip install --upgrade pip build twine
           python -m build
 
-      - name: twine check（元数据/README 渲染自检）
+      - name: twine check (metadata / README rendering)
         run: twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
 
   github-release:
-    name: 挂到 GitHub Release
+    name: attach to the GitHub Release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
-      # 本 job 不 checkout，gh 无从推断仓库，故显式 --repo。
-      - name: 确保 Release 存在并上传 sdist / wheel
+      # This job does not check out the repository, so gh cannot infer it from the
+      # working directory — pass --repo explicitly.
+      - name: Ensure the Release exists, then upload the sdist / wheel
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 新标签可能还没有对应的 Release：先查，不存在则创建后再上传。
+          # A fresh tag may not have a Release yet: check first, create it if it is
+          # missing, then upload the artifacts.
           gh release view "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" >/dev/null 2>&1 \
             || gh release create "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" \
                  --title "${GITHUB_REF_NAME}" --generate-notes
           gh release upload "${GITHUB_REF_NAME}" dist/* --repo "${{ github.repository }}" --clobber
 
   pypi-publish:
-    name: 发布到 PyPI（Trusted Publishing）
+    name: publish to PyPI (Trusted Publishing)
     needs: build
-    # 只在手动触发时发布，避免推 tag 误发 PyPI
+    # Manual runs only, so pushing a tag can never publish to PyPI by accident
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/mono-aeb
     permissions:
-      id-token: write # Trusted Publishing 用 OIDC，无需 API token
+      id-token: write # Trusted Publishing uses OIDC; no API token required
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/

@@ -15,6 +15,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from .friction import a_eff_for_mu
+
 
 @dataclass
 class CameraConfig:
@@ -113,12 +115,16 @@ class RiskThresholds:
 
     AEB 触发点随自车速度自适应：固定 TTC 阈值在高速时太激进、
     低速时太保守，改为按制动模型动态计算
-        TTC_AEB(v) = t_react + v / (2·a_max)
+        TTC_AEB(v) = t_react + v / (2·a_eff)
+    a_eff 默认取干地设计值 a_max（与固定阈值口径一致）；置 friction_mu
+    后改用实测有效制动减速度表 a_eff(μ)（aeb/friction.py）：低附着路面
+    a_eff 更小、TTC_AEB 更大，触发随附着自适应地提前。
     FCW / ATTENTION 在此基础上加固定前置余量，整条决策梯度随车速整体平移。
     """
 
     t_react: float = 0.5  # 驾驶员反应时间 (s)
-    a_max: float = 6.86  # 紧急制动最大减速度 (m/s²，≈0.7g)
+    a_max: float = 6.86  # 紧急制动最大减速度 (m/s²，≈0.7g；a_eff 上限)
+    friction_mu: float | None = None  # 路面附着 μ；None=固定 a_max（原行为），非 None 查表
     ttc_fcw_margin: float = 1.0  # FCW 相对 AEB 的前置余量 (s)
     ttc_attention_margin: float = 2.0  # ATTENTION 相对 AEB 的前置余量 (s)
     d_safe: float = 5.0  # 安全距离 (m)，用于 a_req
@@ -126,7 +132,11 @@ class RiskThresholds:
     def ladder(self, v_ego_mps: float) -> tuple[float, float, float]:
         """返回 (ttc_attention, ttc_fcw, ttc_aeb)，随自车速度动态变化。"""
         v = max(v_ego_mps, 0.0)
-        aeb = self.t_react + v / (2.0 * self.a_max)
+        # OFF 路径 a_eff 即 a_max 本身（同一 float，逐位等价原公式）
+        a_eff = (
+            self.a_max if self.friction_mu is None else a_eff_for_mu(self.friction_mu, self.a_max)
+        )
+        aeb = self.t_react + v / (2.0 * a_eff)
         return (aeb + self.ttc_attention_margin, aeb + self.ttc_fcw_margin, aeb)
 
 

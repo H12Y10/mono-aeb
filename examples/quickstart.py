@@ -1,16 +1,17 @@
-"""mono-aeb 一键体验：依赖自检 + 合成 demo。
+"""mono-aeb quickstart: dependency self-check + synthetic demo.
 
-用法：
-    python examples/quickstart.py --demo              # 合成逼近目标 → 完整决策链 → 状态升级（默认）
-    python examples/quickstart.py --check             # 仅做依赖自检
-    python examples/quickstart.py --demo --out a.mp4  # 输出可视化视频
-    python examples/quickstart.py --demo --show       # 实时窗口显示
+Usage:
+    python examples/quickstart.py --demo              # synthetic demo (default)
+    python examples/quickstart.py --check             # dependency self-check only
+    python examples/quickstart.py --demo --out a.mp4  # write a visualization video
+    python examples/quickstart.py --demo --show       # live window
 
-说明：
-    --demo 用 SyntheticDetector 生成一个匀速逼近的目标，驱动
-    “跟踪 → 测距 → TTC → 决策”全链，不依赖真实视频 / 检测权重，
-    展示 NORMAL → ATTENTION → FCW → AEB 的状态演进。
-    真实视频请用 examples/demo_aeb.py（默认 YOLOv8n 检测，--coco 映射）。
+Notes:
+    --demo drives a SyntheticDetector that generates a target closing at constant
+    speed through the full tracking -> ranging -> TTC -> decision chain, with no real
+    video and no detection weights, and prints the NORMAL -> ATTENTION -> FCW -> AEB
+    progression frame by frame. For real video use examples/demo_aeb.py (YOLOv8n
+    detection by default; pass --coco for COCO-pretrained weights).
 """
 
 import argparse
@@ -29,12 +30,12 @@ from aeb.detectors import BaseDetector
 from aeb.pipeline import AEBPipeline
 from aeb.types import Detection, RiskLevel
 
-# 核心依赖（--demo 即够用）：tracker/测距/TTC 需要，不含检测权重
+# Core dependencies (enough for --demo): needed by tracker / ranging / TTC; no weights.
 CORE_DEPS = {
     "numpy": "numpy",
     "cv2": "opencv-python",
     "scipy": "scipy",
-    "lap": "lap（缺少对应 wheel 时可改装 lapx，其模块名即 lap）",
+    "lap": "lap (install lapx instead if no lap wheel exists for your platform)",
 }
 
 LEVEL_COLORS = {
@@ -59,7 +60,7 @@ def missing_deps(need_detector: bool = False) -> list:
     missing = []
     for mod, pkg in deps.items():
         if importlib.util.find_spec(mod) is None:
-            missing.append(f"{mod}（pip install {pkg}）")
+            missing.append(f"{mod} (pip install {pkg})")
     return missing
 
 
@@ -222,14 +223,16 @@ def run_demo(args) -> int:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="mono-aeb 一键体验")
-    ap.add_argument("--demo", action="store_true", default=True, help="合成 demo（默认）")
-    ap.add_argument("--check", action="store_true", help="仅做依赖自检，不跑 demo")
-    ap.add_argument("--frames", type=int, default=120, help="demo 帧数（默认 120）")
+    ap = argparse.ArgumentParser(description="mono-aeb quickstart")
+    ap.add_argument("--demo", action="store_true", default=True, help="synthetic demo (default)")
+    ap.add_argument("--check", action="store_true", help="dependency self-check only, no demo")
+    ap.add_argument("--frames", type=int, default=120, help="number of demo frames (default 120)")
     ap.add_argument("--fps", type=float, default=30.0)
-    ap.add_argument("--v-close", type=float, default=10.0, help="合成目标的接近速度 m/s（默认 10）")
-    ap.add_argument("--out", default=None, help="输出视频路径（可选）")
-    ap.add_argument("--show", action="store_true", help="实时显示")
+    ap.add_argument(
+        "--v-close", type=float, default=10.0, help="closing speed of the synthetic target (m/s)"
+    )
+    ap.add_argument("--out", default=None, help="output video path (optional)")
+    ap.add_argument("--show", action="store_true", help="show a live window")
     args = ap.parse_args()
 
     if args.check:

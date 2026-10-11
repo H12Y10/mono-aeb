@@ -9,6 +9,10 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 - **Decision chain** — detection → ByteTrack tracking → in-path filtering → ground-plane ranging →
   dual-source TTC (calibration-free scale TTC fused with distance TTC) → speed-adaptive risk state
   machine (`NORMAL → ATTENTION → FCW → AEB_WARNING`).
+- **Road-friction aware thresholds (opt-in)** — `RiskThresholds.friction_mu` replaces the fixed
+  `a_max` in the AEB trigger formula with a measured `a_eff(μ)` table (`aeb/friction.py`; 10 points
+  over `μ ∈ [0.4, 3.5]`, endpoints clamp without extrapolation, capped at `a_max`). The default
+  `None` keeps the previous fixed-`a_max` behaviour bit-for-bit.
 - **Detector-agnostic contract** — `BaseDetector`; the YOLOv8 (`yolo` extra) and D-FINE (`dfine`
   extra) backends both satisfy it, and the decision chain consumes only
   `[x1, y1, x2, y2, score, class]`.
