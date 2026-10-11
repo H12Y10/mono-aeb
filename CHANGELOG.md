@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In-process CLI tests in `tests/test_cli_module.py`: `aeb.cli.main([...])` is now also driven directly (`--version`, `check`, `demo`, the no-command help, and `demo --out`), alongside the existing subprocess end-to-end cases. The subprocess cases prove the packaged entry points execute; the in-process ones keep the CLI's coverage visible to the in-process report — the suite now reports 68% of `aeb/` overall, 71% over the decision chain excluding the two CLI entry files, and the zero-data case count is 41.
+
 ## [0.2.1] - 2026-10-12
 
 ### Added
