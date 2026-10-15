@@ -39,6 +39,7 @@ def test_distance_ttc_and_state_machine_ladder():
     d0, v, fps = 100.0, 20.0, cfg.fps
     det = FakeApproachDetector(d0=d0, v=v, fps=fps)
     pipe = AEBPipeline(cfg, det)
+    pipe.set_ego_speed(v)  # 自车速度与接近速度一致（同车道目标：闭速 ≤ 自车速）
     frame = np.zeros((720, 1280, 3), np.uint8)
 
     seen_levels = []

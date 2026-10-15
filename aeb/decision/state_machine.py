@@ -52,8 +52,23 @@ class RiskStateMachine:
             return att + self.hys
         return 0.0
 
+    # 物理先验闸：同向/同车道目标，接近速度不会显著超过自车速度。
+    # TTC 若与距离不自洽（D/TTC 隐含的接近速度远超自车速度），说明它是远处弱信号
+    # 被测量噪声压出来的假值（实测：自车 3 m/s、目标 21.8m 外曾报出 TTC 0.67s）。
+    # 留 CLOSING_MARGIN 容差给 GPS/加速度噪声。与智能驾驶侧链条一致。
+    CLOSING_MARGIN = 5.0
+
     def decide(self, risk: RiskFeature) -> RiskLevel:
         ttc = risk.ttc_fused
+        # 先过物理先验闸：不自洽的 TTC 一律当无风险，不参与升级/迟滞。
+        if (
+            np.isfinite(ttc)
+            and ttc > 0.0
+            and np.isfinite(risk.distance)
+            and risk.distance / ttc > self.ego_speed + self.CLOSING_MARGIN
+        ):
+            self._level[risk.track_id] = RiskLevel.NORMAL
+            return RiskLevel.NORMAL
         raw = self._raw_level(ttc)
         prev = self._level.get(risk.track_id, RiskLevel.NORMAL)
 
