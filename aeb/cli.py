@@ -27,7 +27,12 @@ import numpy as np
 from aeb.calibration import estimate_ground_plane
 from aeb.config import AEBConfig, CameraConfig
 from aeb.detectors import BaseDetector
-from aeb.ego_speed import ego_speed_at, load_ego_speed, load_ego_speed_series
+from aeb.ego_speed import (
+    ego_speed_at,
+    load_ego_speed,
+    load_ego_speed_or,
+    load_ego_speed_series,
+)
 from aeb.pipeline import AEBPipeline
 from aeb.types import AEB_CLASS_NAMES, Detection, RiskLevel
 
@@ -404,7 +409,7 @@ def run_calib(args) -> int:
         def ego_speed_fn(i):
             return ego_speed_at(ts, speeds, i / fps)
     else:
-        v_median = load_ego_speed(path, agg="median") or 12.0
+        v_median = load_ego_speed_or(path, default=12.0, agg="median")
 
         def ego_speed_fn(i, v=v_median):
             return v

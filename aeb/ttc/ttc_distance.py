@@ -8,7 +8,7 @@ import numpy as np
 
 from .base import TTCEstimator
 from .history import TrackHistory
-from .ttc_scale import theil_sen_slope
+from .ttc_scale import MIN_SAMPLES, motion_snr_ok, theil_sen_slope
 
 # 接近速度物理上限（m/s）。即便稳健拟合，距离序列也可能被极端离群拉出
 # 几百 m/s 的假斜率（远超真实道路接近速度）。超过该值视为不可信，直接判
@@ -19,14 +19,16 @@ MAX_CLOSING_SPEED = 40.0
 class DistanceTTC(TTCEstimator):
     def _fit(self, track_id: int, history: TrackHistory):
         seq = history.get(track_id)
-        if len(seq) < 2:
+        if len(seq) < MIN_SAMPLES:
             return None
         ts = np.array([f / self.fps for f, _, _ in seq], dtype=np.float64)
         ds = np.array([d for _, d, _ in seq], dtype=np.float64)
         valid = np.isfinite(ds)
-        if valid.sum() < 2:
+        if valid.sum() < MIN_SAMPLES:
             return None
         ts, ds = ts[valid], ds[valid]
+        if not motion_snr_ok(ds):     # 距离未显著变化 → 斜率是噪声（远处单目距离尤甚）
+            return None
 
         a = theil_sen_slope(ts, ds)  # D = a·t + b，接近时 a < 0
         v_close = float(-a)

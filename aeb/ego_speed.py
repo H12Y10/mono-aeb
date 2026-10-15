@@ -39,6 +39,13 @@ def load_ego_speed(video_path, info_dir=None, agg="mean"):
     return float(sum(speeds) / len(speeds))
 
 
+def load_ego_speed_or(video_path, default=12.0, info_dir=None, agg="mean"):
+    """None-safe：只有确实没数据(None)才用 default；合法的 0.0（停车）原样返回。
+    （`load_ego_speed(x) or default` 会把 0 误当无数据——实测踩到。）"""
+    v = load_ego_speed(video_path, info_dir=info_dir, agg=agg)
+    return default if v is None else v
+
+
 def load_ego_speed_series(video_path, info_dir=None):
     """返回 (times_sec, speeds)：相对片段起点的 GPS 速度时间序列 (m/s)。
 

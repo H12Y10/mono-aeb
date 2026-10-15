@@ -88,3 +88,40 @@ def test_distance_ttc_and_state_machine_ladder():
     median_err = float(np.median(dist_rel_err))
     print(f"测距中位相对误差 = {median_err:.1%}（n={len(dist_rel_err)}）")
     assert median_err < 0.10, f"测距中位相对误差过大: {median_err:.1%}"
+
+
+def test_ttc_snr_gate_rejects_noise_keeps_signal():
+    """可靠性闸：远处弱信号（真运动淹没在测量抖动里）判不可测；近距真接近保留。
+
+    这是"远处弱信号过度触发"的根因修复的回归——两个 TTC 源本身缺有效性判据时，
+    噪声斜率会直接产出危险 TTC。
+    """
+    from aeb.ttc import DistanceTTC, ScaleTTC, TrackHistory
+
+    fps = 30.0
+    scale, dist = ScaleTTC(fps=fps), DistanceTTC(fps=fps)
+
+    # (a) 远处小框 + 强抖动：高度在 ~20px 上下乱跳，无真实增长 → 两源都应判不可测
+    h_noise = TrackHistory()
+    d_noise = TrackHistory()
+    rng = np.random.RandomState(0)
+    for i in range(10):
+        h_noise.push(1, i, 60.0, 20.0 + float(rng.uniform(-4.0, 4.0)))
+        d_noise.push(1, i, 60.0 + float(rng.uniform(-6.0, 6.0)), 20.0)
+    assert not np.isfinite(scale.estimate(1, h_noise)), "抖动远框不应产出尺度 TTC"
+    assert not np.isfinite(dist.estimate(1, d_noise)), "抖动远距不应产出测距 TTC"
+
+    # (b) 近距真接近：D 由 20m 匀速收到 10m（自车 12 m/s 追 8 m/s 前车 → 闭速 4 m/s）
+    h_sig = TrackHistory()
+    d_sig = TrackHistory()
+    for i in range(10):
+        d = 20.0 - 4.0 * (i / fps)
+        h = 1100.0 * 1.5 / d          # 地面模型：框高随距离缩短而增大
+        h_sig.push(2, i, d, h)
+        d_sig.push(2, i, d, h)
+    ttc_s = scale.estimate(2, h_sig)
+    ttc_d = dist.estimate(2, d_sig)
+    assert np.isfinite(ttc_s) and ttc_s > 0.0, "自洽近距接近应保留尺度 TTC"
+    assert np.isfinite(ttc_d) and ttc_d > 0.0, "自洽近距接近应保留测距 TTC"
+    # 真值 TTC ≈ D_now / v_close = 16 / 4 = 4 s（末帧 D≈16m），容差放宽
+    assert 2.5 < ttc_d < 6.0, f"测距 TTC 偏离真值: {ttc_d:.2f}s"
