@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - In-process CLI tests in `tests/test_cli_module.py`: `aeb.cli.main([...])` is now also driven directly (`--version`, `check`, `demo`, the no-command help, and `demo --out`), alongside the existing subprocess end-to-end cases. The subprocess cases prove the packaged entry points execute; the in-process ones keep the CLI's coverage visible to the in-process report — the suite now reports 68% of `aeb/` overall, 71% over the decision chain excluding the two CLI entry files, and the zero-data case count is 41.
 
+### Fixed
+
+- **Decision-level robustness to far/weak targets** (`aeb/decision/state_machine.py`). Both TTC sources (scale from bbox-growth, distance from range-difference) are dominated by measurement noise when the target is small/far, which produced spurious low TTCs and over-triggered AEB. `decide()` now applies a physical-prior gate: for a same-direction in-path target the implied closing speed (`distance / ttc`) cannot exceed the ego speed by more than 5 m/s (`CLOSING_MARGIN`); inconsistent readings are treated as no-risk and do not participate in escalation or hysteresis. On the 18-segment BDD100K replay this removed five clearly spurious interventions on far/slow/inconsistent targets, moving the intervention rate **88.9% → 61.1%** (16/18 → 11/18) while keeping every genuine near/fast intervention; the ablation `full` AEB-frame count moved **757 → 269** (and `no_inpath` 9655 → 7253). Commit `4923d18`.
+
 ## [0.2.1] - 2026-10-12
 
 ### Added
