@@ -347,7 +347,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_cli_module.py` | 从仓库根目录以 subprocess 跑打包入口点：`python -m aeb demo` / `check` / `--version`（等级演进、退出码） |
 | `tests/test_friction_table.py` | 附着自适应阈值：实测 μ→`a_eff` 表（节点值精确、区间线性插值、端点不外推、钳制 ≤ `a_max`、NaN 报错），以及 `friction_mu=None` 与固定 `a_max` 公式逐位一致 |
 
-**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **68%**（2026-10-12 在 `v0.2.1` 上实测；共 1517 条语句）——其中决策链本体（即剔除两个 CLI 入口文件）为 **71%**（`aeb/cli.py` 56%：`demo` / `check` / 参数解析 / `--version` 由进程内测试驱动，`run` / `calib` 两条路径需要可选后端；`aeb/__main__.py` 只在 subprocess 冒烟里执行，进程内计 0%）。决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%、`friction.py` 100%——而检测器实现模块（`detectors/dfine_detector.py`、`detectors/yolov8_detector.py`）与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表（完全覆盖的文件会跳过）。
+**覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **69%**（2026-10-15 实测，`main` 含决策闸；共 1521 条语句）——其中决策链本体（即剔除两个 CLI 入口文件）为 **71%**（`aeb/cli.py` 56%：`demo` / `check` / 参数解析 / `--version` 由进程内测试驱动，`run` / `calib` 两条路径需要可选后端；`aeb/__main__.py` 只在 subprocess 冒烟里执行，进程内计 0%）。决策链本体覆盖较好——`pipeline.py` 98%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%、`friction.py` 100%——而检测器实现模块（`detectors/dfine_detector.py`、`detectors/yolov8_detector.py`）与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表（完全覆盖的文件会跳过）。
 
 **Lint / 格式化**：使用 [`ruff`](https://github.com/astral-sh/ruff)，配置在 `pyproject.toml`（排除 vendored ByteTrack 子集；允许注释中的中文标点），另配 [`pre-commit`](https://pre-commit.com/) 钩子（`.pre-commit-config.yaml`）。本地启用：`pip install pre-commit && pre-commit install`；CI 有独立 job 跑 `ruff check` 与 `ruff format --check`。
 

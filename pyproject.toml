@@ -13,7 +13,11 @@ license-files = ["LICENSE", "aeb/tracker/vendor/bytetrack/LICENSE"]
 authors = [{ name = "mono-aeb contributors" }]
 keywords = ["AEB", "FCW", "forward-collision-warning", "monocular", "time-to-collision", "TTC", "autonomous-driving"]
 classifiers = [
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
