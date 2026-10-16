@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mono-aeb"
-version = "0.2.1"
+version = "0.3.0"
 description = "Detector-agnostic monocular AEB/FCW decision chain: detection → tracking → ranging → TTC → risk decision (calibration-free scale TTC)"
 readme = "README.md"
 requires-python = ">=3.10"
