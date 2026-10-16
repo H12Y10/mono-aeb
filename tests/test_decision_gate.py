@@ -12,16 +12,14 @@ from aeb.types import RiskFeature, RiskLevel
 def test_gate_rejects_inconsistent_far_ttc():
     """远处弱信号假值：D=25m、ttc=0.5s → 隐含接近 50 m/s，远超自车速 12+5 → 判 NORMAL。"""
     sm = RiskStateMachine(RiskThresholds(), ego_speed_mps=12.0)
-    r = RiskFeature(track_id=1, in_path=True, distance=25.0, closing_speed=50.0,
-                    ttc_fused=0.5)
+    r = RiskFeature(track_id=1, in_path=True, distance=25.0, closing_speed=50.0, ttc_fused=0.5)
     assert sm.decide(r) == RiskLevel.NORMAL
 
 
 def test_gate_keeps_consistent_near_ttc():
     """自洽真险情：D=8m、ttc=0.9s → 隐含 8.9 m/s ≤ 12+5 → 照常升级到 AEB_WARNING。"""
     sm = RiskStateMachine(RiskThresholds(), ego_speed_mps=12.0)
-    r = RiskFeature(track_id=2, in_path=True, distance=8.0, closing_speed=8.9,
-                    ttc_fused=0.9)
+    r = RiskFeature(track_id=2, in_path=True, distance=8.0, closing_speed=8.9, ttc_fused=0.9)
     assert sm.decide(r) == RiskLevel.AEB_WARNING
 
 

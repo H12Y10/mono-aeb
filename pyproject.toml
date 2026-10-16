@@ -13,7 +13,9 @@ license-files = ["LICENSE", "aeb/tracker/vendor/bytetrack/LICENSE"]
 authors = [{ name = "mono-aeb contributors" }]
 keywords = ["AEB", "FCW", "forward-collision-warning", "monocular", "time-to-collision", "TTC", "autonomous-driving"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
+    # 注：不再列 "License :: OSI Approved :: Apache Software License"——PEP 639 下
+    # license 表达式（第 11 行）与 License 分类器互斥，setuptools>=77（本包 build
+    # 要求）会直接报 InvalidConfigError 拒绝构建。许可证由 license/license-files 表达。
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

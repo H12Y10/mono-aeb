@@ -6,9 +6,10 @@
   尺度 TTC 免标定给出 τ，故 D = v_ego · τ。
   地面平面模型：y_bottom = horizon_y + f·H / D，即
       y_bottom = horizon_y + f·H · (1/D)
-  对 (1/D, y_bottom) 做 Theil-Sen 稳健直线拟合，一次同时解出：
-      - 斜率   = f·H（测距尺度）
-      - 截距   = horizon_y（地平线 / 消失点，之前默认 360 未标定）
+  对 (1/D, y_bottom) 做 Theil-Sen 稳健直线拟合，取**截距**为 horizon_y（地平线 /
+  消失点，之前默认 360 未标定）。测距尺度 f·H 不取该拟合的斜率（Theil-Sen 斜率对
+  Kalman 平滑滞后更敏感），而由解出的 horizon 逐轨迹算 D·(y_bottom−horizon)，
+  再对各轨迹取中位。
 
   早期实现（已移除）只解 f·H（horizon 固定 360），近距离目标 denom
   ≈30px 时 ±38px 的地平线误差就会造成约 2 倍 f·H 偏差；联合拟合消除该偏差。

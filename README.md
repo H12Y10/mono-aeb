@@ -214,6 +214,7 @@ mono-aeb/
 │   ├── pipeline.py         # AEBPipeline main chain
 │   ├── calibration.py      # per-video self-calibration (joint f·H & horizon estimation)
 │   ├── ego_speed.py        # GPS speed from BDD100K info/*.json
+│   ├── imageio.py          # unicode-safe image read/write (cv2 fails silently on non-ASCII paths)
 │   ├── detectors/          # BaseDetector + YOLOv8 + D-FINE
 │   ├── tracker/            # ByteTrack adapter + cython_bbox numpy shim
 │   │   └── vendor/bytetrack/   # vendored ByteTrack (MIT, minimal subset, shipped with wheel)
@@ -307,7 +308,7 @@ cfg.risk.friction_mu = 0.6  # low-friction surface: a_eff(0.6) = 3.566 m/s², tr
 
 BDD100K is crowdsourced, so cameras differ per video and there are no unified intrinsics. This repository provides two calibrations:
 
-1. **Ego speed + scale TTC** (primary entry point): for approximately stationary targets `D = v_ego · τ_scale`, then a Theil–Sen line fit over `(1/D, y_bottom)` jointly solves the slope `f·H` and the intercept `horizon_y` (`aeb/calibration.py: estimate_ground_plane`).
+1. **Ego speed + scale TTC** (primary entry point): for approximately stationary targets `D = v_ego · τ_scale`, then a Theil–Sen line fit over `(1/D, y_bottom)` takes its **intercept** as `horizon_y`; `f·H` is not the fitted slope but a per-track median of `D·(y_bottom − horizon)` (the Theil–Sen slope is more sensitive to tracking-smoothing lag) (`aeb/calibration.py: estimate_ground_plane`).
 2. **Known target width (reserved)**: `CameraConfig.calibrate_from_known_width()` (currently no call site, kept as a reserved interface) recovers camera height from how pixel width changes with `(y_bottom − horizon)`.
 
 CLI:
@@ -342,7 +343,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_cli_module.py` | the packaged entry points via subprocess from the repo root: `python -m aeb demo` / `check` / `--version` (level progression, exit codes) |
 | `tests/test_friction_table.py` | friction-aware thresholds: the measured μ→`a_eff` table (exact nodes, interpolation, endpoint clamping without extrapolation, cap at `a_max`, NaN rejected) and `friction_mu=None` staying bit-identical to the fixed-`a_max` formula |
 
-**Coverage**: the zero-data suite covers **69%** of `aeb/` overall (re-measured 2026-10-15, `main` incl. the decision gate; 1521 statements) — **71%** over the decision chain alone, i.e. excluding the two CLI entry-point files (`aeb/cli.py` 56%: `demo` / `check` / parser / `--version` are driven in-process by `tests/test_cli_module.py`, while its `run` / `calib` paths need the optional backends; `aeb/__main__.py` runs only inside the subprocess smoke tests, so it reports 0% in-process). The decision chain itself is well covered — `pipeline.py` 98%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85%, `friction.py` 100% — while the detector implementation modules (`detectors/dfine_detector.py`, `detectors/yolov8_detector.py`) and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the per-module table on every run (fully covered files are skipped).
+**Coverage**: the zero-data suite covers **69%** of `aeb/` overall (re-measured 2026-10-16, incl. the decision gate; 1564 statements) — **72%** over the decision chain alone, i.e. excluding the two CLI entry-point files (`aeb/cli.py` 56%: `demo` / `check` / parser / `--version` are driven in-process by `tests/test_cli_module.py`, while its `run` / `calib` paths need the optional backends; `aeb/__main__.py` runs only inside the subprocess smoke tests, so it reports 0% in-process). The decision chain itself is well covered — `pipeline.py` 100%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85%, `friction.py` 100% — while the detector implementation modules (`detectors/dfine_detector.py`, `detectors/yolov8_detector.py`) and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the per-module table on every run (fully covered files are skipped).
 
 **Lint / formatting**: [`ruff`](https://github.com/astral-sh/ruff), configured in `pyproject.toml` (the vendored ByteTrack subset is excluded; CJK punctuation in comments is allowed), plus a [`pre-commit`](https://pre-commit.com/) hook set in `.pre-commit-config.yaml`. Run `pip install pre-commit && pre-commit install` to enable it locally; a dedicated CI job runs `ruff check` and `ruff format --check`.
 

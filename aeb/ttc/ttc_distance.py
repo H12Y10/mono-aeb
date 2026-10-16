@@ -27,7 +27,7 @@ class DistanceTTC(TTCEstimator):
         if valid.sum() < MIN_SAMPLES:
             return None
         ts, ds = ts[valid], ds[valid]
-        if not motion_snr_ok(ds):     # 距离未显著变化 → 斜率是噪声（远处单目距离尤甚）
+        if not motion_snr_ok(ds):  # 距离未显著变化 → 斜率是噪声（远处单目距离尤甚）
             return None
 
         a = theil_sen_slope(ts, ds)  # D = a·t + b，接近时 a < 0

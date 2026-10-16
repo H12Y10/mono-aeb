@@ -38,8 +38,8 @@ def theil_sen_slope(x: np.ndarray, y: np.ndarray) -> float:
 # 此时任何斜率估计都是噪声（实测：~20px 远框把 23s 真值算成 2.3s；远处单目距离
 # 把 17s 算成 1.7s）。用**相对**判据（span vs 逐帧噪声）而非绝对阈值，才不会误杀
 # 近距真险情（真接近时 span≫噪声，信噪比很高）。
-MIN_SAMPLES = 4          # 少于 4 帧的斜率是纯噪声
-SNR_K = 4.0              # 信号须 ≥ 4× 逐帧噪声
+MIN_SAMPLES = 4  # 少于 4 帧的斜率是纯噪声
+SNR_K = 4.0  # 信号须 ≥ 4× 逐帧噪声
 
 
 def motion_snr_ok(series: np.ndarray, k: float = SNR_K) -> bool:
@@ -64,7 +64,7 @@ class ScaleTTC(TTCEstimator):
         if valid.sum() < MIN_SAMPLES:
             return float("inf")
         ts, hs = ts[valid], hs[valid]
-        if not motion_snr_ok(1.0 / hs):     # 生长信号未超测量噪声 → 斜率不可信
+        if not motion_snr_ok(1.0 / hs):  # 生长信号未超测量噪声 → 斜率不可信
             return float("inf")
 
         b = theil_sen_slope(ts, 1.0 / hs)  # 1/h 对 t 的斜率，接近时 b < 0

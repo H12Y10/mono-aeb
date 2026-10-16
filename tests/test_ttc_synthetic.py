@@ -116,7 +116,7 @@ def test_ttc_snr_gate_rejects_noise_keeps_signal():
     d_sig = TrackHistory()
     for i in range(10):
         d = 20.0 - 4.0 * (i / fps)
-        h = 1100.0 * 1.5 / d          # 地面模型：框高随距离缩短而增大
+        h = 1100.0 * 1.5 / d  # 地面模型：框高随距离缩短而增大
         h_sig.push(2, i, d, h)
         d_sig.push(2, i, d, h)
     ttc_s = scale.estimate(2, h_sig)

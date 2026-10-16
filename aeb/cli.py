@@ -33,6 +33,7 @@ from aeb.ego_speed import (
     load_ego_speed_or,
     load_ego_speed_series,
 )
+from aeb.imageio import imread_unicode
 from aeb.pipeline import AEBPipeline
 from aeb.types import AEB_CLASS_NAMES, Detection, RiskLevel
 
@@ -258,7 +259,7 @@ def iter_source(source: str):
         if not paths:
             raise SystemExit(f"no images in directory: {source}")
         for fp in paths:
-            img = cv2.imread(str(fp))
+            img = imread_unicode(fp)  # 走 unicode 封装：cv2.imread 在中文路径下静默返回 None
             if img is not None:
                 yield img
         return
@@ -372,7 +373,11 @@ def run_video(args) -> int:
 
     if writer is not None:
         writer.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        # 仅在实际开过窗口时销毁。无 GUI 的 OpenCV（opencv-python-headless，常见于
+        # 服务器 / Docker / CI）里 destroyAllWindows() 会抛 cv2.error，无头环境必须跳过。
+        # （与 run_demo 的同类守卫保持一致；此前只修了 run_demo，真视频路径漏了。）
+        cv2.destroyAllWindows()
     print(f"[demo] done, {frame_idx} frames")
     return 0
 
