@@ -446,9 +446,9 @@ def run_video(args) -> int:
     if err:
         print(f"[demo] {err}")
         return 1
-    # 检测器后端在此处才 import：ultralytics / torch 只有真视频路径才需要，
-    # 保证 demo / check 在只装核心依赖的环境下不触发重依赖（aeb.detectors 懒加载）。
-    from aeb.detectors import COCO_TO_AEB, DFineDetector, YOLOv8Detector
+    # 检测器后端按分支才 import：选 yolo 时不该拉起 torch（dfine extra），
+    # 选 dfine 时也不该拉起 ultralytics（AGPL，yolo extra）。此前两支一起 import，
+    # 只装一个 extra 的用户会因为另一个后端缺依赖而失败。
 
     is_dir, probed_fps, frame_size = _probe_source(args.source)
     fps, fps_src = _pick_fps(args.fps, probed_fps, is_dir=is_dir)
@@ -479,6 +479,8 @@ def run_video(args) -> int:
     else:
         speed_src = f"default {cfg.ego_speed_mps:.1f} m/s"
     if args.detector == "dfine":
+        from aeb.detectors import DFineDetector
+
         det_kwargs = {"conf": args.conf, "device": args.device}
         if args.dfine_weights:
             det_kwargs["weights"] = args.dfine_weights
@@ -486,6 +488,8 @@ def run_video(args) -> int:
             det_kwargs["config"] = args.dfine_config
         det = DFineDetector(**det_kwargs)
     else:
+        from aeb.detectors import COCO_TO_AEB, YOLOv8Detector
+
         class_map = COCO_TO_AEB if args.coco else None
         det = YOLOv8Detector(args.weights, conf=args.conf, device=args.device, class_map=class_map)
     pipe = AEBPipeline(cfg, det)

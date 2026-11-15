@@ -69,8 +69,21 @@ def image_dir(tmp_path):
     return d
 
 
+def _patch_detector(monkeypatch, fake=_FakeDetector):
+    """直接把假检测器写进 aeb.detectors 的命名空间。
+
+    不能用 monkeypatch.setattr("aeb.detectors.YOLOv8Detector", ...)：该名字是懒加载的，
+    getattr 会先去 import ultralytics，而 CI 的核心测试环境没装它（也不该装）。
+    写 __dict__ 则绕过 __getattr__，并同样在测试结束后还原。
+    """
+    import aeb.detectors as det
+
+    monkeypatch.setitem(det.__dict__, "YOLOv8Detector", fake)
+    monkeypatch.setitem(det.__dict__, "COCO_TO_AEB", {})
+
+
 def _run(monkeypatch, argv):
-    monkeypatch.setattr("aeb.detectors.YOLOv8Detector", _FakeDetector)
+    _patch_detector(monkeypatch)
     return cli.main(argv)
 
 
@@ -148,7 +161,7 @@ def test_max_frames_limits_processing(monkeypatch, image_dir, tmp_path):
 def test_jsonl_is_flushed_when_detector_raises(monkeypatch, image_dir, tmp_path):
     """异常传播出去，但 JSONL 必须已关闭——否则半截文件读不出来。"""
     out = tmp_path / "rows.jsonl"
-    monkeypatch.setattr("aeb.detectors.YOLOv8Detector", _BoomDetector)
+    _patch_detector(monkeypatch, _BoomDetector)
     with pytest.raises(RuntimeError, match="detector exploded"):
         cli.main(["run", "--source", str(image_dir), "--fps", "30", "--jsonl", str(out)])
     # 已关闭：能重新打开并逐行读取（且第一帧在处理前就抛了，行数为 0 或 1 都合法）
