@@ -52,6 +52,9 @@ def main() -> int:
         help="D-FINE config yaml; defaults to <DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_aeb.yml",
     )
     ap.add_argument("--out", default=None, help="output video path (optional)")
+    ap.add_argument("--jsonl", default=None, help="write one JSON object per frame")
+    ap.add_argument("--max-frames", type=int, default=None, help="process at most N frames")
+    ap.add_argument("--calib", default=None, help="calibration JSON from `calib --out-config`")
     ap.add_argument("--show", action="store_true", help="show a live window")
     ap.add_argument(
         "--ego-speed",
@@ -84,6 +87,12 @@ def main() -> int:
         argv += ["--dfine-config", args.dfine_config]
     if args.out:
         argv += ["--out", args.out]
+    if args.jsonl:
+        argv += ["--jsonl", args.jsonl]
+    if args.max_frames is not None:
+        argv += ["--max-frames", str(args.max_frames)]
+    if args.calib:
+        argv += ["--calib", args.calib]
     if args.show:
         argv += ["--show"]
     if args.ego_speed is not None:

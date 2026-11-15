@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-11-15
+
+### Added
+
+- **`run --jsonl <path>`** writes one JSON object per frame. Field names are the same, in the same order, as the first eleven columns of the driving-demo platform's CSV (`frame`, `global_level`, `n_tracks`, `n_in_path`, `min_ttc_fused`, `min_ttc_distance`, `min_ttc_scale`, `min_distance_m`, `min_closing_speed`, `n_fcw`, `n_aeb`), so the two projects cannot drift into two contracts. Only aggregation (count / min) is done here — every value comes straight from `FrameResult.risks`. `inf` and `nan` are written as `null`, since JSON has no Infinity.
+- **`run --max-frames N`** stops after N frames, for a quick check or a bounded demo.
+- **End-of-run summary**: frame count, wall-clock elapsed, processing frame rate and the four-level histogram, e.g. `summary: 150 frames in 8.6s (processing 17.5 fps) NORMAL 96 / ATTENTION 12 / FCW 42 / AEB 0`. The rate is the whole loop (process + draw + optional write), not the raw detector rate — it is labelled `processing` for that reason.
+- `aeb/py.typed` (PEP 561), so downstream `mypy` / `pyright` treat the package as typed.
+
+### Changed
+
+- `run` now releases the video writer and closes the JSONL via `contextlib.ExitStack`, and `iter_source` releases the capture in a `finally`. An exception mid-video no longer leaves an unplayable partial mp4 or an unclosed file.
+- CI enforces `--cov-fail-under=65` on both coverage jobs, so coverage regressions fail the build instead of being merely printed. (Current: 69% of `aeb/`, 72% over the decision chain.)
+
+### Tests
+
+- `tests/test_cli_run_output.py` adds 10 cases: record shape and `null` handling, JSONL line count and key order, `--max-frames`, flush-on-exception, video output, example-wrapper forwarding, and a cross-project check that the JSONL field names match the platform CSV prefix.
+
 ## [0.3.1] - 2026-11-15
 
 ### Added
@@ -117,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pluggable detector backends: YOLOv8 (`yolo` extra) and D-FINE (`dfine` extra) behind a common `BaseDetector` interface.
 - Zero-data test suite (12 cases) and GitHub Actions CI (Ubuntu / Windows × Python 3.10 / 3.12).
 
+[0.3.2]: https://github.com/H12Y10/mono-aeb/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/H12Y10/mono-aeb/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/H12Y10/mono-aeb/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/H12Y10/mono-aeb/compare/v0.2.0...v0.2.1

@@ -140,6 +140,8 @@ mono-aeb run --source video.mp4 --coco --out out.mp4
 - `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable. The startup log states which of the three was used.
 - `--fps`: frame rate for the time axis; when omitted it is taken from the video's own `CAP_PROP_FPS`, falling back to 30. **An image directory has no intrinsic frame rate and requires an explicit `--fps`.** The startup log states which source was used.
 - `--calib calib.json`: apply a calibration file written by `mono-aeb calib --out-config` (see below). A file estimated at a different resolution is rejected rather than silently applied — `f·H` is in pixels.
+- `--jsonl rows.jsonl`: write one JSON object per frame. Field names are the same as the first eleven columns of the driving-demo platform's CSV (`frame` … `n_aeb`); `inf` / `nan` become `null`.
+- `--max-frames N`: process at most N frames. Every run ends with a summary line (`frames`, elapsed, processing fps, level histogram).
 - `--detector dfine`: switch to the D-FINE backend (see below).
 
 You may also pass an image directory via `--source ./frames_dir`.

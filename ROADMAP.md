@@ -27,6 +27,12 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 - **Console entry points** — `mono-aeb demo` / `check` / `run` / `calib` (and the equivalent
   `python -m aeb ...` form) ship with the wheel, so the zero-data demo can be run without cloning
   the repository.
+- **Calibration reuse** — `calib --out-config` writes a versioned JSON (f·H, horizon, source
+  resolution, fps, sample counts) and `run --calib` reads it back through the same `CameraConfig`
+  setters; a file estimated at a different resolution is rejected rather than silently applied.
+- **Per-frame records** — `run --jsonl` writes one JSON object per frame with the same field names
+  as the first eleven columns of the driving-demo platform's CSV; `run --max-frames` bounds the work
+  and every run ends with a summary (frames, elapsed, processing fps, level histogram).
 - **Benchmarks** — `benchmarks/synth_tracking.py` (synthetic multi-target tracking regression) and
   `benchmarks/bbox_overlaps_bench.py` (the numpy shim's cost versus the compiled path).
 - **Container recipe** — a `Dockerfile` that installs the package with the `dev` extra and runs the
@@ -41,9 +47,10 @@ Roughly ordered by expected value, not by date.
   registry would make `docker run` a one-liner for users.
 - **An ONNX Runtime backend** — would make the `--check` and demo paths usable without `torch` /
   `ultralytics`, at some accuracy cost against the current backends.
-- **Confidence handling for scale TTC** — the estimate degrades when the closing speed is small and
-  the target's box barely changes; a documented usable regime and an explicit confidence gate would
-  be more useful than a silent number.
+- **Explicit validity and reason fields on the risk result** — the source-level SNR gate (0.3.0)
+  already rejects noise-driven TTC estimates; what the API still lacks is a per-target reason code
+  (`no samples` / `out of path` / `physics-inconsistent` / `below threshold`) and a documented
+  usable regime, so a downstream user can tell "no risk" from "not measurable".
 - **Failure-case gallery** — a short, honest set of the situations the chain gets wrong, with the
   inputs behind them.
 

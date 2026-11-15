@@ -49,7 +49,7 @@ jobs:
         run: python examples/quickstart.py --demo
 
       - name: pytest (with coverage table)
-        run: pytest -q --cov=aeb --cov-report=term-missing
+        run: pytest -q --cov=aeb --cov-report=term-missing --cov-fail-under=65
 
   full-install:
     name: full install (yolo + dev extras)
@@ -75,7 +75,7 @@ jobs:
         run: python examples/quickstart.py --check
 
       - name: pytest (with coverage table)
-        run: pytest -q --cov=aeb --cov-report=term-missing
+        run: pytest -q --cov=aeb --cov-report=term-missing --cov-fail-under=65
 
       # The steps above run against the editable install / source tree. This one proves the
       # packaged CLI: it builds the wheel from this checkout, installs it, leaves the checkout

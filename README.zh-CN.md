@@ -143,6 +143,8 @@ mono-aeb run --source 视频.mp4 --coco --out out.mp4
 - `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。启动日志会写明用的是三者中的哪一个。
 - `--fps`：时间轴帧率；缺省取源视频自身 `CAP_PROP_FPS`，取不到回退 30。**图片目录没有固有帧率，必须显式给 `--fps`。** 启动日志会写明帧率来源。
 - `--calib calib.json`：套用 `mono-aeb calib --out-config` 写出的标定文件（见下）。分辨率对不上的文件会被拒绝，而不是静默套用——`f·H` 是以像素为单位的。
+- `--jsonl rows.jsonl`：逐帧写一行 JSON，字段名与智能驾驶演示平台 CSV 的前 11 列一致（`frame` … `n_aeb`）；`inf` / `nan` 一律写 `null`。
+- `--max-frames N`：最多处理 N 帧。每次运行结束会打印一行摘要（帧数、耗时、处理帧率、四档等级计数）。
 - `--detector dfine`：切换到 D-FINE 后端（见下）。
 
 也可传入图片目录 `--source ./frames_dir`。

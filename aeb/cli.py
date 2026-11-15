@@ -18,9 +18,13 @@ here so that it ships in the wheel.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.metadata
 import importlib.util
+import json
+import math
 import os
+import time
 from pathlib import Path
 
 from aeb.calib_io import apply_calibration, load_calibration, save_calibration
@@ -309,12 +313,15 @@ def iter_source(source: str):
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise SystemExit(f"cannot open video: {source}")
-    while True:
-        ok, img = cap.read()
-        if not ok:
-            break
-        yield img
-    cap.release()
+    try:
+        while True:
+            ok, img = cap.read()
+            if not ok:
+                break
+            yield img
+    finally:
+        # 消费者中途 break / 抛异常时也要释放解码器：否则文件句柄会挂到进程结束。
+        cap.release()
 
 
 def draw_video(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
@@ -405,6 +412,35 @@ def _probe_source(source: str):
     return False, fps, size
 
 
+def _finite_min(values) -> float | None:
+    """有限值集合的最小值；没有有限值时返回 None（写进 JSON 是 null）。"""
+    vals = [float(v) for v in values if v is not None and math.isfinite(float(v))]
+    return min(vals) if vals else None
+
+
+def frame_record(result) -> dict:
+    """单帧结构化记录：字段名与智能驾驶演示平台的 CSV 前 11 列保持一致。
+
+    只做聚合（计数 / 取最小），**不重算链路里的任何数值**；TTC / 距离 / 速度
+    全部直接取自 `FrameResult.risks`。`inf` 与 `nan` 一律写 `null`——JSON 没有
+    Infinity，下游解析器也不该被迫处理它。
+    """
+    risks = result.risks
+    return {
+        "frame": int(result.frame_idx),
+        "global_level": LEVEL_NAMES[result.global_level],
+        "n_tracks": len(result.tracks),
+        "n_in_path": sum(1 for r in risks if getattr(r, "in_path", False)),
+        "min_ttc_fused": _finite_min(r.ttc_fused for r in risks),
+        "min_ttc_distance": _finite_min(r.ttc_distance for r in risks),
+        "min_ttc_scale": _finite_min(r.ttc_scale for r in risks),
+        "min_distance_m": _finite_min(r.distance for r in risks),
+        "min_closing_speed": _finite_min(getattr(r, "closing_speed", None) for r in risks),
+        "n_fcw": sum(1 for r in risks if r.level == RiskLevel.FCW),
+        "n_aeb": sum(1 for r in risks if r.level == RiskLevel.AEB_WARNING),
+    }
+
+
 def run_video(args) -> int:
     err = core_import_error()
     if err:
@@ -462,32 +498,50 @@ def run_video(args) -> int:
 
     writer = None
     frame_idx = 0
-    for frame in iter_source(args.source):
-        result = pipe.process(frame, frame_idx)
-        out = draw_video(frame, result, pipe)
-
-        if writer is None and args.out:
-            h, w = out.shape[:2]
-            writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-
-        if writer is not None:
-            writer.write(out)
-        if args.show:
-            cv2.imshow("AEB", out)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+    counts = {"NORMAL": 0, "ATTENTION": 0, "FCW": 0, "AEB": 0}
+    started = time.perf_counter()
+    with contextlib.ExitStack() as stack:
+        jf = stack.enter_context(open(args.jsonl, "w", encoding="utf-8")) if args.jsonl else None
+        for frame in iter_source(args.source):
+            if args.max_frames is not None and frame_idx >= args.max_frames:
                 break
+            result = pipe.process(frame, frame_idx)
+            counts[LEVEL_NAMES[result.global_level]] += 1
+            if jf is not None:
+                jf.write(json.dumps(frame_record(result), ensure_ascii=False) + "\n")
+            out = draw_video(frame, result, pipe)
 
-        frame_idx += 1
-        if frame_idx % 100 == 0:
-            print(f"[demo] frame {frame_idx}  global={result.global_level.name}")
+            if writer is None and args.out:
+                h, w = out.shape[:2]
+                writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
-    if writer is not None:
-        writer.release()
-    if args.show:
-        # 仅在实际开过窗口时销毁。无 GUI 的 OpenCV（opencv-python-headless，常见于
-        # 服务器 / Docker / CI）里 destroyAllWindows() 会抛 cv2.error，无头环境必须跳过。
-        # （与 run_demo 的同类守卫保持一致；此前只修了 run_demo，真视频路径漏了。）
-        cv2.destroyAllWindows()
+            if writer is not None:
+                writer.write(out)
+            if args.show:
+                cv2.imshow("AEB", out)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+
+            frame_idx += 1
+            if frame_idx % 100 == 0:
+                print(f"[demo] frame {frame_idx}  global={result.global_level.name}")
+        # 异常也要收尾：半截 mp4 与没关闭的 JSONL 都比失败本身更难排查。
+        if writer is not None:
+            stack.callback(writer.release)
+        if args.show:
+            # 无 GUI 的 OpenCV（headless 构建）里 destroyAllWindows() 会抛 cv2.error。
+            stack.callback(cv2.destroyAllWindows)
+
+    elapsed = time.perf_counter() - started
+    rate = frame_idx / elapsed if elapsed > 0 else 0.0
+    print(
+        f"[demo] summary: {frame_idx} frames in {elapsed:.2f}s "
+        f"(processing {rate:.1f} fps)  "
+        f"NORMAL {counts['NORMAL']} / ATTENTION {counts['ATTENTION']} / "
+        f"FCW {counts['FCW']} / AEB {counts['AEB']}"
+    )
+    if args.jsonl:
+        print(f"[demo] per-frame records written to {args.jsonl}")
     print(f"[demo] done, {frame_idx} frames")
     return 0
 
@@ -682,6 +736,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="D-FINE config yaml; defaults to <DFINE_ROOT>/configs/dfine/dfine_hgnetv2_m_aeb.yml",
     )
     p_run.add_argument("--out", default=None, help="output video path (optional)")
+    p_run.add_argument(
+        "--jsonl",
+        default=None,
+        help="write one JSON object per frame (frame / global_level / counts / min TTC and "
+        "distance); inf and nan are written as null",
+    )
+    p_run.add_argument(
+        "--max-frames",
+        type=int,
+        default=None,
+        help="process at most this many frames (useful for a quick check or a demo)",
+    )
     p_run.add_argument("--show", action="store_true", help="show a live window")
     p_run.add_argument(
         "--ego-speed",
