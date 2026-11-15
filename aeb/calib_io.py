@@ -84,9 +84,7 @@ def load_calibration(path: str | Path) -> dict:
 
     schema = data.get("schema")
     if schema != SCHEMA:
-        raise ValueError(
-            f"unsupported calibration schema {schema!r} in {p}; expected {SCHEMA!r}"
-        )
+        raise ValueError(f"unsupported calibration schema {schema!r} in {p}; expected {SCHEMA!r}")
     cam = data.get("camera") or {}
     missing = [k for k in _REQUIRED_CAMERA if k not in cam]
     if missing:

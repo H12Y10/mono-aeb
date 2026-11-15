@@ -14,9 +14,8 @@ import json
 import pytest
 
 from aeb.calib_io import SCHEMA, apply_calibration, load_calibration, save_calibration
-from aeb.cli import _pick_fps, run_check
+from aeb.cli import _pick_fps
 from aeb.config import CameraConfig
-
 
 # --------------------------------------------------------------- 配置往返
 
@@ -65,9 +64,7 @@ def test_load_rejects_unknown_schema(tmp_path):
 
 def test_load_rejects_missing_camera_fields(tmp_path):
     p = tmp_path / "bad.json"
-    p.write_text(
-        json.dumps({"schema": SCHEMA, "camera": {"focal_px": 640.0}}), encoding="utf-8"
-    )
+    p.write_text(json.dumps({"schema": SCHEMA, "camera": {"focal_px": 640.0}}), encoding="utf-8")
     with pytest.raises(ValueError, match="missing camera fields"):
         load_calibration(p)
 
@@ -121,9 +118,8 @@ def test_pick_fps_rejects_non_positive_argument():
 
 def test_probe_source_reads_image_directory_resolution(tmp_path):
     """图片目录没有帧率但有分辨率；标定校验依赖它，不能返回 None。"""
-    import numpy as np
-
     import cv2
+    import numpy as np
 
     from aeb.cli import _probe_source
 
@@ -141,8 +137,9 @@ def test_check_reports_import_failure_instead_of_crashing(monkeypatch):
     """缺依赖时 check 要给人话 + 退出码 1，而不是 import 阶段 traceback。"""
     import aeb.cli as cli
 
-    monkeypatch.setattr(cli, "core_import_error", lambda: "numpy is missing (pip install numpy)")
-    monkeypatch.setattr(cli, "missing_deps", lambda need_detector=False: ["numpy (pip install numpy)"])
+    hint = "numpy is missing (pip install numpy)"
+    monkeypatch.setattr(cli, "core_import_error", lambda: hint)
+    monkeypatch.setattr(cli, "missing_deps", lambda need_detector=False: [hint])
     assert cli.run_check() == 1
 
 

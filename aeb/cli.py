@@ -45,7 +45,7 @@ try:  # pragma: no cover - 取决于运行环境
     )
     from aeb.imageio import imread_unicode
     from aeb.pipeline import AEBPipeline
-except ImportError as _exc:  # noqa: N816 - 保留异常给各子命令使用
+except ImportError as _exc:
     _CORE_IMPORT_ERROR: Exception | None = _exc
 else:
     _CORE_IMPORT_ERROR = None
@@ -60,6 +60,7 @@ def core_import_error() -> str | None:
         f"{_CORE_IMPORT_ERROR}. Install them with `pip install mono-aeb` "
         "(or `pip install numpy opencv-python scipy lap`), then re-run."
     )
+
 
 LEVEL_COLORS = {
     RiskLevel.NORMAL: (80, 220, 80),
@@ -525,9 +526,7 @@ def run_calib(args) -> int:
         # 标定值以像素为单位，记录实际分辨率，run 侧据此拒绝对不上的配置。
         camera.img_w, camera.img_h = src_w, src_h
     class_map = COCO_TO_AEB if args.coco else None
-    detector = YOLOv8Detector(
-        args.weights, conf=args.conf, device=args.device, class_map=class_map
-    )
+    detector = YOLOv8Detector(args.weights, conf=args.conf, device=args.device, class_map=class_map)
 
     ts, speeds = load_ego_speed_series(path)
     if ts is not None and len(ts) > 0:
@@ -591,7 +590,7 @@ def run_calib(args) -> int:
             version=package_version(),
         )
         print(f"  → saved calibration config: {out}")
-        print(f"    reuse it with: mono-aeb run --calib \"{out}\" --source <video> ...")
+        print(f'    reuse it with: mono-aeb run --calib "{out}" --source <video> ...')
     else:
         print("  → not saved (pass --out-config <file.json> to reuse it with `run --calib`)")
     return 0
