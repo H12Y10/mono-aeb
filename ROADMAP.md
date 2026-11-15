@@ -41,7 +41,9 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 
 ## Being considered
 
-Roughly ordered by expected value, not by date.
+Roughly ordered by expected value, not by date. These are deliberately parked until after the
+national finals (2026-12): none of them is in progress, and none should be read as a promise
+of a release date.
 
 - **Publishing the container image** — the `Dockerfile` exists and builds locally; pushing it to a
   registry would make `docker run` a one-liner for users.
