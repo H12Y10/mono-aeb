@@ -140,7 +140,9 @@ mono-aeb run --source 视频.mp4 --coco --out out.mp4
 （源码 checkout 里为 `python examples/demo_aeb.py --source 视频.mp4 --coco --out out.mp4`。）
 
 - `--coco`：权重为 COCO 预训练（如 `yolov8n.pt`）时做 COCO → AEB 7 类映射；使用 AEB 精调权重时不加该参数。
-- `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。
+- `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。启动日志会写明用的是三者中的哪一个。
+- `--fps`：时间轴帧率；缺省取源视频自身 `CAP_PROP_FPS`，取不到回退 30。**图片目录没有固有帧率，必须显式给 `--fps`。** 启动日志会写明帧率来源。
+- `--calib calib.json`：套用 `mono-aeb calib --out-config` 写出的标定文件（见下）。分辨率对不上的文件会被拒绝，而不是静默套用——`f·H` 是以像素为单位的。
 - `--detector dfine`：切换到 D-FINE 后端（见下）。
 
 也可传入图片目录 `--source ./frames_dir`。
@@ -317,14 +319,21 @@ BDD100K 由众包采集，相机逐视频不同，无统一内参。本仓库提
 CLI：
 
 ```bash
-mono-aeb calib --stem 0571873b-faf718b2
+mono-aeb calib --stem 0571873b-faf718b2 --out-config clip.json
 # 或
-mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
+mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200 --out-config clip.json
+
+# 再把结果用到 run 上
+mono-aeb run --source /path/to/samples-1k/videos/xxxx.mov --calib clip.json --coco --out out.mp4
 ```
 
 （源码 checkout 里：`python examples/calibrate_video.py` 参数完全相同。）
 
 `--stem` 模式从 `BDD100K_VIDEO_DIR` 环境变量定位视频目录，缺省为当前目录。
+
+`--out-config` 写出一个小型带版本号的 JSON（`schema: mono-aeb/calibration/1`），包含 `f·H`、`horizon_y`、源分辨率与帧率、样本/轨迹数与包版本；`run --calib` 通过同一套 `CameraConfig` setter 读回，不存在第二套标定公式。不给 `--out-config` 时结果仍会打印，但随进程消失——和以前一样，`run` 用不上。
+
+两点要知道：静态目标样本不足时 `calib` 退出码是 **1**（以前是 0）；默认权重 `yolov8n.pt` 是 COCO 预训练的，用它标定要加 `--coco`。`--device` 选择标定用的设备（默认 `0`）。
 
 ---
 
@@ -346,6 +355,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_import_smoke.py` | 导入链、ROI 梯形派生、7 类分库跟踪器 |
 | `tests/test_quickstart_demo.py` | 端到端跑 `examples/quickstart.py`，把 README 承诺的等级演进锁成断言 |
 | `tests/test_cli_module.py` | 从仓库根目录以 subprocess 跑打包入口点：`python -m aeb demo` / `check` / `--version`（等级演进、退出码） |
+| `tests/test_cli_calib_io.py` | 标定配置往返（schema、分辨率校验）、帧率来源优先级、图片目录分辨率探测、`check` 的导入失败路径 |
 | `tests/test_friction_table.py` | 附着自适应阈值：实测 μ→`a_eff` 表（节点值精确、区间线性插值、端点不外推、钳制 ≤ `a_max`、NaN 报错），以及 `friction_mu=None` 与固定 `a_max` 公式逐位一致 |
 
 **覆盖率**：零数据测试套件对 `aeb/` 的整体覆盖为 **69%**（2026-10-16 实测，含决策闸；共 1564 条语句）——其中决策链本体（即剔除两个 CLI 入口文件）为 **72%**（`aeb/cli.py` 56%：`demo` / `check` / 参数解析 / `--version` 由进程内测试驱动，`run` / `calib` 两条路径需要可选后端；`aeb/__main__.py` 只在 subprocess 冒烟里执行，进程内计 0%）。决策链本体覆盖较好——`pipeline.py` 100%、`in_path/fixed_roi.py` 96%、`tracker/bytetrack.py` 96%、`ttc/*` 84–92%、`calibration.py` 85%、`friction.py` 100%——而检测器实现模块（`detectors/dfine_detector.py`、`detectors/yolov8_detector.py`）与 `ego_speed.py` 为 0%，因为它们需要可选的检测器后端与真实 GPS 数据。CI 每次运行都会打印逐模块覆盖率表（完全覆盖的文件会跳过）。

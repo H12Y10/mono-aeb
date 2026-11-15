@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-11-15
+
+### Added
+
+- **`calib` results can now be reused by `run`** (`aeb/calib_io.py`, `calib --out-config`, `run --calib`). Previously `calib` printed `f·H` / horizon and mutated an in-process `CameraConfig`; `run_video` built a fresh `AEBConfig` and had no way to read it back, so the documented "calibrate, then run" flow was not actually available from the CLI. The file is versioned (`schema: mono-aeb/calibration/1`) and records the source resolution, fps, sample/track counts and package version. The loader only moves existing `CameraConfig` fields through the existing `calibrate_scale()` / `calibrate_horizon()` setters — no second calibration formula.
+- `calib --device` and `calib --coco`. The device was hard-wired to `0` (CPU-only machines could not calibrate at all), and the default `yolov8n.pt` is COCO-pretrained while the calibration entry applied the AEB class filter without mapping — `--coco` now maps the classes.
+- `run` prints **where the frame rate and the ego speed came from** (command line / source video / metadata / default) instead of only printing the resolved numbers.
+
+### Changed
+
+- `run --fps` is now auto by default: explicit `--fps` > source video `CAP_PROP_FPS` (>0) > 30. Image directories have no intrinsic frame rate and now require an explicit `--fps` (exit 1 with a message) instead of silently assuming 30.
+- Loading a calibration estimated at another resolution now fails with an explicit error. `f·H` is in pixels, so applying a 1280×720 estimate to 640×360 would silently produce wrong distances.
+
+### Fixed
+
+- `mono-aeb check` no longer dies at import time when a core dependency is missing. `cv2` / `numpy` / `aeb.pipeline` are imported best-effort; the command reports the failing import with an install hint and exits 1.
+- `mono-aeb calib` returned exit code 0 when calibration failed (not enough static samples). It now returns 1, so scripts and CI can detect it.
+
+### Tests
+
+- `tests/test_cli_calib_io.py` adds 14 zero-data cases: config round-trip, schema and resolution validation, fps-source priority, image-directory resolution probing, and `check`'s import-failure path. Suite: 62 passed.
+
 ## [0.3.0] - 2026-10-16
 
 ### Added
@@ -95,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pluggable detector backends: YOLOv8 (`yolo` extra) and D-FINE (`dfine` extra) behind a common `BaseDetector` interface.
 - Zero-data test suite (12 cases) and GitHub Actions CI (Ubuntu / Windows × Python 3.10 / 3.12).
 
+[0.3.1]: https://github.com/H12Y10/mono-aeb/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/H12Y10/mono-aeb/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/H12Y10/mono-aeb/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/H12Y10/mono-aeb/compare/v0.1.2...v0.2.0

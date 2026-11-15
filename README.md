@@ -137,7 +137,9 @@ mono-aeb run --source video.mp4 --coco --out out.mp4
 (From a source checkout: `python examples/demo_aeb.py --source video.mp4 --coco --out out.mp4`.)
 
 - `--coco`: maps COCO classes to the 7 AEB classes when using COCO-pretrained weights (e.g. `yolov8n.pt`); omit it when using AEB-finetuned weights.
-- `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable.
+- `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable. The startup log states which of the three was used.
+- `--fps`: frame rate for the time axis; when omitted it is taken from the video's own `CAP_PROP_FPS`, falling back to 30. **An image directory has no intrinsic frame rate and requires an explicit `--fps`.** The startup log states which source was used.
+- `--calib calib.json`: apply a calibration file written by `mono-aeb calib --out-config` (see below). A file estimated at a different resolution is rejected rather than silently applied — `f·H` is in pixels.
 - `--detector dfine`: switch to the D-FINE backend (see below).
 
 You may also pass an image directory via `--source ./frames_dir`.
@@ -314,12 +316,19 @@ BDD100K is crowdsourced, so cameras differ per video and there are no unified in
 CLI:
 
 ```bash
-mono-aeb calib --stem 0571873b-faf718b2
+mono-aeb calib --stem 0571873b-faf718b2 --out-config clip.json
 # or
-mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200
+mono-aeb calib --video /path/to/samples-1k/videos/xxxx.mov --max-frames 200 --out-config clip.json
+
+# then reuse the estimate in the run step
+mono-aeb run --source /path/to/samples-1k/videos/xxxx.mov --calib clip.json --coco --out out.mp4
 ```
 
 (From a source checkout: `python examples/calibrate_video.py` takes the identical flags.) `--stem` mode locates the video directory via the `BDD100K_VIDEO_DIR` environment variable (defaults to the current directory).
+
+`--out-config` writes a small versioned JSON (`schema: mono-aeb/calibration/1`) holding `f·H`, `horizon_y`, the source resolution and fps, the sample/track counts and the package version; `run --calib` reads it back through the same `CameraConfig` setters, so there is no second calibration formula. Without `--out-config` the estimate is still printed, but it disappears with the process — as before, that result cannot be reused by `run`.
+
+Two behaviours worth knowing: `calib` exits **1** when there are not enough static-target samples (it used to exit 0), and the default `yolov8n.pt` is COCO-pretrained, so pass `--coco` when calibrating with it. `--device` selects the calibration device (default `0`).
 
 ---
 
@@ -341,6 +350,7 @@ pytest -q --cov=aeb --cov-report=term-missing
 | `tests/test_import_smoke.py` | import chain, ROI trapezoid derivation, 7-class per-class tracker |
 | `tests/test_quickstart_demo.py` | end-to-end `examples/quickstart.py`, asserting the level progression promised in the README |
 | `tests/test_cli_module.py` | the packaged entry points via subprocess from the repo root: `python -m aeb demo` / `check` / `--version` (level progression, exit codes) |
+| `tests/test_cli_calib_io.py` | calibration config round-trip (schema, resolution guard), frame-rate source priority, image-directory resolution probing, and `check`'s import-failure path |
 | `tests/test_friction_table.py` | friction-aware thresholds: the measured μ→`a_eff` table (exact nodes, interpolation, endpoint clamping without extrapolation, cap at `a_max`, NaN rejected) and `friction_mu=None` staying bit-identical to the fixed-`a_max` formula |
 
 **Coverage**: the zero-data suite covers **69%** of `aeb/` overall (re-measured 2026-10-16, incl. the decision gate; 1564 statements) — **72%** over the decision chain alone, i.e. excluding the two CLI entry-point files (`aeb/cli.py` 56%: `demo` / `check` / parser / `--version` are driven in-process by `tests/test_cli_module.py`, while its `run` / `calib` paths need the optional backends; `aeb/__main__.py` runs only inside the subprocess smoke tests, so it reports 0% in-process). The decision chain itself is well covered — `pipeline.py` 100%, `in_path/fixed_roi.py` 96%, `tracker/bytetrack.py` 96%, `ttc/*` 84–92%, `calibration.py` 85%, `friction.py` 100% — while the detector implementation modules (`detectors/dfine_detector.py`, `detectors/yolov8_detector.py`) and `ego_speed.py` report 0% because they need the optional detector backends and real GPS data. CI prints the per-module table on every run (fully covered files are skipped).

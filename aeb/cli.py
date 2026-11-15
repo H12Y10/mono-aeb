@@ -15,27 +15,51 @@ translate the old flag style into these subcommands -- the implementation lives
 here so that it ships in the wheel.
 """
 
+from __future__ import annotations
+
 import argparse
 import importlib.metadata
 import importlib.util
 import os
 from pathlib import Path
 
-import cv2
-import numpy as np
-
-from aeb.calibration import estimate_ground_plane
-from aeb.config import AEBConfig, CameraConfig
-from aeb.detectors import BaseDetector
-from aeb.ego_speed import (
-    ego_speed_at,
-    load_ego_speed,
-    load_ego_speed_or,
-    load_ego_speed_series,
-)
-from aeb.imageio import imread_unicode
-from aeb.pipeline import AEBPipeline
+from aeb.calib_io import apply_calibration, load_calibration, save_calibration
+from aeb.detectors import BaseDetector  # 轻量：只导入 base，重后端仍懒加载
 from aeb.types import AEB_CLASS_NAMES, Detection, RiskLevel
+
+# 核心依赖改成「尽力导入」：`mono-aeb check` 的职责就是在缺依赖时给人话提示，
+# 不能在 import 阶段抛 traceback（此前顶层 import cv2 / numpy / pipeline，
+# 缺任何一个都会让 check 直接崩）。注解已由 `from __future__ import annotations`
+# 变成字符串，np.ndarray 不再要求 numpy 在场。
+try:  # pragma: no cover - 取决于运行环境
+    import cv2
+    import numpy as np
+
+    from aeb.calibration import estimate_ground_plane
+    from aeb.config import AEBConfig, CameraConfig
+    from aeb.ego_speed import (
+        ego_speed_at,
+        load_ego_speed,
+        load_ego_speed_or,
+        load_ego_speed_series,
+    )
+    from aeb.imageio import imread_unicode
+    from aeb.pipeline import AEBPipeline
+except ImportError as _exc:  # noqa: N816 - 保留异常给各子命令使用
+    _CORE_IMPORT_ERROR: Exception | None = _exc
+else:
+    _CORE_IMPORT_ERROR = None
+
+
+def core_import_error() -> str | None:
+    """核心依赖导入失败时返回可操作提示，正常时返回 None。"""
+    if _CORE_IMPORT_ERROR is None:
+        return None
+    return (
+        "core dependencies are not importable in this environment: "
+        f"{_CORE_IMPORT_ERROR}. Install them with `pip install mono-aeb` "
+        "(or `pip install numpy opencv-python scipy lap`), then re-run."
+    )
 
 LEVEL_COLORS = {
     RiskLevel.NORMAL: (80, 220, 80),
@@ -175,6 +199,10 @@ def draw_synthetic(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarr
 
 
 def run_demo(args) -> int:
+    err = core_import_error()
+    if err:
+        print(f"[quickstart] {err}")
+        return 1
     missing = missing_deps(need_detector=False)
     if missing:
         print("[quickstart] missing dependencies, install them first:")
@@ -235,12 +263,19 @@ def run_demo(args) -> int:
 
 
 def run_check(args=None) -> int:
+    err = core_import_error()
     core = missing_deps(need_detector=False)
     det = missing_deps(need_detector=True)
     print("[quickstart] core dependencies (needed by --demo):")
     print("  " + ("all set" if not core else "\n  ".join(core)))
     print("[quickstart] detector dependencies (needed by examples/demo_aeb.py on real video):")
     print("  " + ("all set" if not det else "\n  ".join(det)))
+    if err:
+        # 依赖表能查出来但 import 仍失败，说明是装坏/版本冲突而不是单纯缺包，
+        # 这时把原始 ImportError 一并打出来，否则用户只能看到 "all set" 却跑不起来。
+        print("[quickstart] core import failed:")
+        print(f"  {err}")
+        return 1
     return 0 if not core else 1
 
 
@@ -249,13 +284,19 @@ def run_check(args=None) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _sorted_images(directory: Path) -> list[Path]:
+    """目录下按扩展名收集图片并按文件名排序（jpg / jpeg / png 混排也稳定）。"""
+    paths: list[Path] = []
+    for ext in ("*.jpg", "*.jpeg", "*.png"):
+        paths += sorted(directory.glob(ext))
+    return paths
+
+
 def iter_source(source: str):
     """图片目录按文件名排序逐帧读；否则按视频读。"""
     p = Path(source)
     if p.is_dir():
-        paths = []
-        for ext in ("*.jpg", "*.jpeg", "*.png"):
-            paths += sorted(p.glob(ext))
+        paths = _sorted_images(p)
         if not paths:
             raise SystemExit(f"no images in directory: {source}")
         for fp in paths:
@@ -321,18 +362,85 @@ def draw_video(frame: np.ndarray, result, pipeline: AEBPipeline) -> np.ndarray:
     return np.vstack([banner, frame])
 
 
+def _pick_fps(fps_arg, probed, *, is_dir: bool):
+    """帧率优先级：显式 --fps > 源视频 CAP_PROP_FPS(>0) > 30。返回 (fps, 来源)。"""
+    if fps_arg is not None:
+        if fps_arg <= 0:
+            raise SystemExit("[run] --fps must be positive")
+        return float(fps_arg), "command line (--fps)"
+    if is_dir:
+        raise SystemExit(
+            "[run] an image directory has no intrinsic frame rate; pass --fps explicitly"
+        )
+    if probed and probed > 0:
+        return float(probed), "source video (CAP_PROP_FPS)"
+    return 30.0, "default 30 (source reports no frame rate)"
+
+
+def _probe_source(source: str):
+    """返回 (是否目录, 源视频帧率或 None, (w, h) 或 None)；打不开视频直接退出。
+
+    图片目录没有帧率，但**有分辨率**——标定文件按像素存 f·H，必须拿到尺寸才能
+    校验，否则换分辨率的配置会被静默套用。
+    """
+    p = Path(source)
+    if p.is_dir():
+        size = None
+        for fp in _sorted_images(p):
+            img = imread_unicode(fp)
+            if img is not None:
+                size = (int(img.shape[1]), int(img.shape[0]))
+                break
+        return True, None, size
+    cap = cv2.VideoCapture(str(p))
+    if not cap.isOpened():
+        raise SystemExit(f"cannot open video: {source}")
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    size = (
+        int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    )
+    cap.release()
+    return False, fps, size
+
+
 def run_video(args) -> int:
+    err = core_import_error()
+    if err:
+        print(f"[demo] {err}")
+        return 1
     # 检测器后端在此处才 import：ultralytics / torch 只有真视频路径才需要，
     # 保证 demo / check 在只装核心依赖的环境下不触发重依赖（aeb.detectors 懒加载）。
     from aeb.detectors import COCO_TO_AEB, DFineDetector, YOLOv8Detector
 
-    cfg = AEBConfig(fps=args.fps)
+    is_dir, probed_fps, frame_size = _probe_source(args.source)
+    fps, fps_src = _pick_fps(args.fps, probed_fps, is_dir=is_dir)
+    cfg = AEBConfig(fps=fps)
+
+    if args.calib:
+        # 标定结果以像素为单位（f·H），换分辨率不能直接套用；apply_calibration 会在
+        # 尺寸不符时抛 ValueError，这里转成一句人话 + 退出码 1。
+        try:
+            calib = load_calibration(args.calib)
+            apply_calibration(cfg.camera, calib, frame_size=frame_size)
+        except ValueError as exc:
+            print(f"[demo] cannot use calibration: {exc}")
+            return 1
+        print(
+            f"[demo] calibration loaded from {args.calib}: "
+            f"f·H = {cfg.camera.focal_height:.1f}, horizon = {cfg.camera.horizon_y:.1f}"
+        )
+
+    # 速度来源必须显式：命令行、GPS 元数据、默认 12 m/s 三者的阈值与一致性筛选
+    # 结果不同，日志里要能分辨，不能只打一个数。
     if args.ego_speed is not None:
         cfg.ego_speed_mps = args.ego_speed
-    elif not Path(args.source).is_dir():
-        v = load_ego_speed(args.source)
-        if v is not None:
-            cfg.ego_speed_mps = v
+        speed_src = "command line (--ego-speed)"
+    elif not is_dir and (v := load_ego_speed(args.source)) is not None:
+        cfg.ego_speed_mps = v
+        speed_src = "metadata (GPS aggregate)"
+    else:
+        speed_src = f"default {cfg.ego_speed_mps:.1f} m/s"
     if args.detector == "dfine":
         det_kwargs = {"conf": args.conf, "device": args.device}
         if args.dfine_weights:
@@ -344,9 +452,10 @@ def run_video(args) -> int:
         class_map = COCO_TO_AEB if args.coco else None
         det = YOLOv8Detector(args.weights, conf=args.conf, device=args.device, class_map=class_map)
     pipe = AEBPipeline(cfg, det)
+    print(f"[demo] fps = {fps:.2f}  source = {fps_src}")
     print(
         f"[demo] ego speed = {cfg.ego_speed_mps:.1f} m/s "
-        f"({cfg.ego_speed_mps * 3.6:.0f} km/h)  "
+        f"({cfg.ego_speed_mps * 3.6:.0f} km/h)  source = {speed_src}  "
         f"AEB threshold = {cfg.risk.ladder(cfg.ego_speed_mps)[2]:.2f}s"
     )
 
@@ -358,7 +467,7 @@ def run_video(args) -> int:
 
         if writer is None and args.out:
             h, w = out.shape[:2]
-            writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (w, h))
+            writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
         if writer is not None:
             writer.write(out)
@@ -388,7 +497,11 @@ def run_video(args) -> int:
 
 
 def run_calib(args) -> int:
-    from aeb.detectors import YOLOv8Detector
+    err = core_import_error()
+    if err:
+        print(f"[calib] {err}")
+        return 1
+    from aeb.detectors import COCO_TO_AEB, YOLOv8Detector
 
     # --stem 模式：视频目录经 BDD100K_VIDEO_DIR 环境变量定位（读调用时的值）
     video_dir = Path(os.environ.get("BDD100K_VIDEO_DIR", "."))
@@ -404,9 +517,17 @@ def run_calib(args) -> int:
     if not cap.isOpened():
         raise SystemExit(f"cannot open video {path}")
     fps = cap.get(cv2.CAP_PROP_FPS) or args.fps
+    src_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    src_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     camera = CameraConfig()  # horizon=360 默认；focal_px/cam_height_m 是待标定的占位
-    detector = YOLOv8Detector(args.weights, conf=args.conf, device="0")
+    if src_w > 0 and src_h > 0:
+        # 标定值以像素为单位，记录实际分辨率，run 侧据此拒绝对不上的配置。
+        camera.img_w, camera.img_h = src_w, src_h
+    class_map = COCO_TO_AEB if args.coco else None
+    detector = YOLOv8Detector(
+        args.weights, conf=args.conf, device=args.device, class_map=class_map
+    )
 
     ts, speeds = load_ego_speed_series(path)
     if ts is not None and len(ts) > 0:
@@ -445,7 +566,8 @@ def run_calib(args) -> int:
             "calibration failed: not enough static-target samples "
             "(increase --max-frames or try another clip)"
         )
-        return 0
+        # 失败必须是失败：此前返回 0，脚本编排与 CI 会把它当成功。
+        return 1
     print(
         f"before calibration: f·H = {camera.focal_height:.1f} (placeholder 1100x1.5)  "
         f"horizon = {camera.horizon_y:.0f} (default)"
@@ -454,6 +576,24 @@ def run_calib(args) -> int:
     camera.calibrate_scale(fh)
     camera.calibrate_horizon(horizon)
     print(f"  → focal_px = {camera.focal_px:.1f} (cam_height_m kept at {camera.cam_height_m} m)")
+
+    if args.out_config:
+        out = save_calibration(
+            args.out_config,
+            camera,
+            source_path=str(path),
+            source_width=src_w or camera.img_w,
+            source_height=src_h or camera.img_h,
+            fps=fps,
+            focal_height=fh,
+            samples=n_samples,
+            tracks=n_tracks,
+            version=package_version(),
+        )
+        print(f"  → saved calibration config: {out}")
+        print(f"    reuse it with: mono-aeb run --calib \"{out}\" --source <video> ...")
+    else:
+        print("  → not saved (pass --out-config <file.json> to reuse it with `run --calib`)")
     return 0
 
 
@@ -507,7 +647,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_run.add_argument("--conf", type=float, default=0.25)
     p_run.add_argument("--device", default="0")
-    p_run.add_argument("--fps", type=float, default=30.0)
+    p_run.add_argument(
+        "--fps",
+        type=float,
+        default=None,
+        help="frame rate used for the time axis; default: the video's own CAP_PROP_FPS, "
+        "falling back to 30. Image directories have no intrinsic frame rate and must "
+        "pass this explicitly",
+    )
+    p_run.add_argument(
+        "--calib",
+        default=None,
+        help="calibration JSON written by `mono-aeb calib --out-config`; applies f·H and "
+        "horizon, and refuses a file estimated at a different resolution",
+    )
     p_run.add_argument(
         "--coco",
         action="store_true",
@@ -544,8 +697,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_calib.add_argument("--stem", type=str, default=None, help="clip stem under samples-1k/videos")
     p_calib.add_argument("--weights", type=str, default="yolov8n.pt")
     p_calib.add_argument("--conf", type=float, default=0.25)
+    p_calib.add_argument(
+        "--device",
+        default="0",
+        help="inference device for the calibration detector (e.g. cpu, 0)",
+    )
+    p_calib.add_argument(
+        "--coco",
+        action="store_true",
+        help="weights are COCO-pretrained (e.g. the default yolov8n.pt): map COCO classes "
+        "to the AEB ones; without it the default weights are filtered by the AEB class ids",
+    )
     p_calib.add_argument("--max-frames", type=int, default=None)
     p_calib.add_argument("--fps", type=float, default=30.0)
+    p_calib.add_argument(
+        "--out-config",
+        default=None,
+        help="write the estimate to this JSON so `mono-aeb run --calib <file>` can reuse it",
+    )
     p_calib.set_defaults(func=run_calib)
 
     return parser
