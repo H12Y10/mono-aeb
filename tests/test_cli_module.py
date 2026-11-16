@@ -37,7 +37,7 @@ def test_module_check_reports_dependencies():
     assert "all set" in r.stdout, f"check did not report core dependencies as ready:\n{r.stdout}"
 
 
-def test_module_demo_walks_the_full_risk_ladder():
+def test_module_demo_walks_the_full_risk_ladder(parse_levels):
     r = _run("demo")
     out = r.stdout
     assert r.returncode == 0, f"python -m aeb demo exited with {r.returncode}:\n{out}\n{r.stderr}"
@@ -78,7 +78,7 @@ def test_inproc_check_reports_dependencies(capsys):
     assert "detector dependencies" in out, out
 
 
-def test_inproc_demo_walks_the_full_risk_ladder(capsys):
+def test_inproc_demo_walks_the_full_risk_ladder(capsys, parse_levels):
     from aeb.cli import main
 
     assert main(["demo"]) == 0

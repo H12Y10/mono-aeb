@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import glob as _glob
 import importlib.metadata
 import importlib.util
 import json
@@ -289,21 +290,75 @@ def run_check(args=None) -> int:
 # ---------------------------------------------------------------------------
 
 
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp")
+
+
 def _sorted_images(directory: Path) -> list[Path]:
-    """目录下按扩展名收集图片并按文件名排序（jpg / jpeg / png 混排也稳定）。"""
+    """目录下按扩展名收集图片并按文件名排序（jpg / jpeg / png / bmp 混排也稳定）。"""
     paths: list[Path] = []
-    for ext in ("*.jpg", "*.jpeg", "*.png"):
-        paths += sorted(directory.glob(ext))
-    return paths
+    for ext in IMAGE_EXTS:
+        paths += sorted(directory.glob(f"*{ext}"))
+    return [p for p in paths if p.is_file()]
+
+
+def _glob_images(pattern: str) -> list[Path]:
+    """按 glob 收集图片（支持 ** 递归），结果按路径排序。"""
+    hits = [Path(h) for h in _glob.glob(pattern, recursive=True)]
+    return sorted(p for p in hits if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
+
+
+def _list_images(list_file: Path) -> list[Path]:
+    """文本清单：一行一个路径或 glob；空行与 # 开头忽略；相对路径相对清单所在目录。"""
+    base = list_file.parent
+    out: list[Path] = []
+    with open(list_file, encoding="utf-8-sig") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            cand = Path(line)
+            if not cand.is_absolute():
+                cand = base / cand
+            if any(ch in line for ch in "*?["):
+                out += _glob_images(str(cand))
+            elif cand.is_dir():
+                out += _sorted_images(cand)
+            elif cand.is_file() and cand.suffix.lower() in IMAGE_EXTS:
+                out.append(cand)
+            # 其余（视频、无效路径）静默跳过：清单里可以混放，视频由 --source 单独给
+    # 去重保序
+    seen, uniq = set(), []
+    for p in out:
+        key = str(p.resolve())
+        if key not in seen:
+            seen.add(key)
+            uniq.append(p)
+    return uniq
+
+
+def resolve_images(source: str) -> list[Path] | None:
+    """把 --source 解析成图片序列；返回 None 表示按视频处理。
+
+    支持四种写法：图片目录、glob（含 **）、文本清单（.txt，一行一个路径或 glob）、单张图片。
+    """
+    p = Path(source)
+    if p.is_dir():
+        return _sorted_images(p)
+    if any(ch in source for ch in "*?["):
+        return _glob_images(source)
+    if p.is_file() and p.suffix.lower() == ".txt":
+        return _list_images(p)
+    if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
+        return [p]
+    return None
 
 
 def iter_source(source: str):
-    """图片目录按文件名排序逐帧读；否则按视频读。"""
-    p = Path(source)
-    if p.is_dir():
-        paths = _sorted_images(p)
+    """图片序列（目录 / glob / 清单 / 单图）按解析顺序逐帧读；否则按视频读。"""
+    paths = resolve_images(source)
+    if paths is not None:
         if not paths:
-            raise SystemExit(f"no images in directory: {source}")
+            raise SystemExit(f"no images resolved from: {source}")
         for fp in paths:
             img = imread_unicode(fp)  # 走 unicode 封装：cv2.imread 在中文路径下静默返回 None
             if img is not None:
@@ -392,9 +447,10 @@ def _probe_source(source: str):
     校验，否则换分辨率的配置会被静默套用。
     """
     p = Path(source)
-    if p.is_dir():
+    paths = resolve_images(source)
+    if paths is not None:
         size = None
-        for fp in _sorted_images(p):
+        for fp in paths:
             img = imread_unicode(fp)
             if img is not None:
                 size = (int(img.shape[1]), int(img.shape[0]))

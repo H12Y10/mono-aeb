@@ -30,6 +30,10 @@ statement of intent, not a commitment: items move as evidence and time allow. Da
 - **Calibration reuse** — `calib --out-config` writes a versioned JSON (f·H, horizon, source
   resolution, fps, sample counts) and `run --calib` reads it back through the same `CameraConfig`
   setters; a file estimated at a different resolution is rejected rather than silently applied.
+- **Third-party detector adapter** — a documented `BaseDetector` contract, a model-free example that
+  drives the full chain, and a test that a foreign detector climbs all four levels.
+- **Flexible input sources** — directories, globs (including `**`), text manifests and single images,
+  with deterministic order.
 - **Per-frame records** — `run --jsonl` writes one JSON object per frame with the same field names
   as the first eleven columns of the driving-demo platform's CSV; `run --max-frames` bounds the work
   and every run ends with a summary (frames, elapsed, processing fps, level histogram).

@@ -142,6 +142,7 @@ mono-aeb run --source 视频.mp4 --coco --out out.mp4
 - `--coco`：权重为 COCO 预训练（如 `yolov8n.pt`）时做 COCO → AEB 7 类映射；使用 AEB 精调权重时不加该参数。
 - `--ego-speed`：自车速度 (m/s)；缺省时自动从 BDD100K `samples-1k/info/*.json` 读 GPS 速度，无数据则回退 `12 m/s`。启动日志会写明用的是三者中的哪一个。
 - `--fps`：时间轴帧率；缺省取源视频自身 `CAP_PROP_FPS`，取不到回退 30。**图片目录没有固有帧率，必须显式给 `--fps`。** 启动日志会写明帧率来源。
+- `--source` 除“图片目录 / 视频文件”外，还接受 **glob**（如 `frames/**/*.png`）、**文本清单**（`.txt`，一行一个路径或 glob，`#` 开头为注释）与**单张图片**；非视频源必须显式给 `--fps`。
 - `--calib calib.json`：套用 `mono-aeb calib --out-config` 写出的标定文件（见下）。分辨率对不上的文件会被拒绝，而不是静默套用——`f·H` 是以像素为单位的。
 - `--jsonl rows.jsonl`：逐帧写一行 JSON，字段名与智能驾驶演示平台 CSV 的前 11 列一致（`frame` … `n_aeb`）；`inf` / `nan` 一律写 `null`。
 - `--max-frames N`：最多处理 N 帧。每次运行结束会打印一行摘要（帧数、耗时、处理帧率、四档等级计数）。
@@ -165,6 +166,15 @@ from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
 det = YOLOv8Detector(
     "yolov8n.pt", conf=0.25, device="0", class_map=COCO_TO_AEB
 )  # 精调权重则 class_map=None
+```
+
+### 接入你自己的检测器
+
+任何实现 `BaseDetector.detect(frame) -> list[Detection]` 的类都能驱动整条链。契约（帧格式、像素坐标、`class_id` 映射、允许返回空列表）见 [docs/detector_adapter.md](docs/detector_adapter.md)；`examples/custom_detector.py` 是一个 30 行、不依赖任何模型的实现，能跑出四级风险——所以“检测器无关”是可运行的，不是口号：
+
+```bash
+python examples/custom_detector.py            # 合成逼近目标
+python examples/custom_detector.py --video v.mp4
 ```
 
 ### 可选高精度后端：D-FINE

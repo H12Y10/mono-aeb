@@ -27,7 +27,7 @@ def test_dependency_check_passes():
     assert "all set" in r.stdout, f"--check did not report core dependencies as ready:\n{r.stdout}"
 
 
-def test_demo_walks_the_full_risk_ladder():
+def test_demo_walks_the_full_risk_ladder(parse_levels):
     r = _run("--demo")
     out = r.stdout
     assert r.returncode == 0, f"--demo exited with {r.returncode}:\n{out}\n{r.stderr}"

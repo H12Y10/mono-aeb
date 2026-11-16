@@ -139,6 +139,7 @@ mono-aeb run --source video.mp4 --coco --out out.mp4
 - `--coco`: maps COCO classes to the 7 AEB classes when using COCO-pretrained weights (e.g. `yolov8n.pt`); omit it when using AEB-finetuned weights.
 - `--ego-speed`: ego speed (m/s); when omitted, GPS speed is read from BDD100K `samples-1k/info/*.json` automatically, falling back to `12 m/s` when unavailable. The startup log states which of the three was used.
 - `--fps`: frame rate for the time axis; when omitted it is taken from the video's own `CAP_PROP_FPS`, falling back to 30. **An image directory has no intrinsic frame rate and requires an explicit `--fps`.** The startup log states which source was used.
+- `--source` also accepts a **glob** (`frames/**/*.png`), a **text manifest** (`.txt`, one path or glob per line, `#` comments), or a **single image** — not just a directory or a video file. Non-video sources need an explicit `--fps`.
 - `--calib calib.json`: apply a calibration file written by `mono-aeb calib --out-config` (see below). A file estimated at a different resolution is rejected rather than silently applied — `f·H` is in pixels.
 - `--jsonl rows.jsonl`: write one JSON object per frame. Field names are the same as the first eleven columns of the driving-demo platform's CSV (`frame` … `n_aeb`); `inf` / `nan` become `null`.
 - `--max-frames N`: process at most N frames. Every run ends with a summary line (`frames`, elapsed, processing fps, level histogram).
@@ -162,6 +163,18 @@ from aeb.detectors import YOLOv8Detector, COCO_TO_AEB
 det = YOLOv8Detector(
     "yolov8n.pt", conf=0.25, device="0", class_map=COCO_TO_AEB
 )  # class_map=None for finetuned weights
+```
+
+### Your own detector
+
+Any class implementing `BaseDetector.detect(frame) -> list[Detection]` can drive the chain — the
+documented contract (frame format, pixel coordinates, `class_id` mapping, empty lists) is in
+[docs/detector_adapter.md](docs/detector_adapter.md). `examples/custom_detector.py` is a 30-line,
+model-free backend that climbs all four risk levels, so the claim is runnable rather than asserted:
+
+```bash
+python examples/custom_detector.py            # synthetic approaching target
+python examples/custom_detector.py --video v.mp4
 ```
 
 ### Optional high-accuracy backend: D-FINE
