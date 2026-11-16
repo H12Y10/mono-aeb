@@ -347,6 +347,24 @@ Two behaviours worth knowing: `calib` exits **1** when there are not enough stat
 
 ---
 
+## Prior art and acknowledgements
+
+None of the packaging adaptations in this repository is novel; each has an established public
+solution. What this project contributes is putting them together inside a **light-core,
+zero-data-regressable** package. Credit where it is due:
+
+| Adaptation | Established prior art | What we did differently |
+|---|---|---|
+| Compiler-free tracking (no `cython_bbox`) | **BoxMOT** ships pure-Python tracker implementations with a NumPy-only interface and optional C++ backends; `supervision` / `torchvision.ops` provide NumPy- or torch-side IoU; `nanobbox` replaces `cython_bbox` with a compiled alternative | We vendor a **minimal ByteTrack subset** inside the package instead of depending on a tracker library that pulls torch |
+| `lap` has no wheel on some platforms | **`lapx`** distributes the same solver under the module name `lap`, so no code change is needed | We only document it; no code branch |
+| `numpy>=1.24` removed `np.float` / `np.int` aliases | A widely used runtime monkey-patch idiom | Nothing new |
+| Non-ASCII (e.g. Chinese) file paths | The `np.fromfile` + `cv2.imdecode` / `Path.write_bytes` recipe is the community-standard workaround for `cv2.imread`'s silent failure | Nothing new |
+| Locating packaged resources | `importlib.resources` is the standard mechanism | Nothing new |
+| Optional backends | Lazy imports on first use are a common pattern | Nothing new |
+
+No code from the projects above is included. Vendored third-party code is limited to the MIT-licensed
+ByteTrack subset, whose licence ships with it (`aeb/tracker/vendor/bytetrack/LICENSE`).
+
 ## Development & testing
 
 Zero-data test suite: no video, detection weights, or network needed — only the core dependencies (numpy / scipy / opencv-python / lap).

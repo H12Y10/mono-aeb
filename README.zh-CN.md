@@ -349,6 +349,23 @@ mono-aeb run --source /path/to/samples-1k/videos/xxxx.mov --calib clip.json --co
 
 ---
 
+## 前人与致谢
+
+本仓库的打包适配**没有一项是原创**，每条都有成熟的公开解法。本项目的贡献在于把它们收口进
+一个**轻核心、零数据可回归**的包里。该致谢的致谢：
+
+| 适配 | 已有的公开做法 | 我们的差异 |
+|---|---|---|
+| 免编译跟踪（不依赖 `cython_bbox`） | **BoxMOT** 提供纯 Python 跟踪实现与 NumPy 接口，C++ 后端可选；`supervision` / `torchvision.ops` 提供 numpy / torch 侧 IoU；`nanobbox` 是 `cython_bbox` 的编译版替代 | 我们在包内 **vendored 最小 ByteTrack 子集**，不引入会拉 torch 的跟踪库 |
+| 部分平台没有 `lap` wheel | **`lapx`** 以模块名 `lap` 分发同一求解器，无需改代码 | 只在文档里给出，不写代码分支 |
+| `numpy>=1.24` 删除 `np.float` / `np.int` 别名 | 社区通行的运行时补丁写法 | 无新意 |
+| 中文等非 ASCII 路径 | `np.fromfile` + `cv2.imdecode` / `Path.write_bytes` 是应对 `cv2.imread` 静默失败的公认做法 | 无新意 |
+| 定位包内资源 | `importlib.resources` 是标准机制 | 无新意 |
+| 可选后端 | 首次使用时懒加载是常见模式 | 无新意 |
+
+以上项目**未包含任何代码**。本仓库内 vendored 的第三方代码仅限 MIT 许可的 ByteTrack 子集，
+许可证随包分发（`aeb/tracker/vendor/bytetrack/LICENSE`）。
+
 ## 开发与测试
 
 零数据测试套件：不需要视频、检测权重或网络，仅需核心依赖（numpy / scipy / opencv-python / lap）。
