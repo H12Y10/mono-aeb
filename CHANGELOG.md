@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-11-17
+
+### Added
+
+- **Expiring state in the TTC fusion and the risk state machine.** `TTCFusion._last` and
+  `RiskStateMachine._level` are keyed by `track_id`; on long videos they only ever grew. Both now
+  expose `prune()`: the fusion drops entries older than `persist_k` frames (still inside the window
+  are kept, so the hold-last-value behaviour is unchanged), and the state machine drops entries not
+  seen for 30 frames (`track_buffer` scale) — a reused id starts from `NORMAL` instead of inheriting
+  the previous level. `AEBPipeline.process()` calls both every frame; `decide()` takes an optional
+  `frame_idx`.
+- `tests/test_prune.py` (4 cases) and `tests/test_ego_speed.py` (6 cases: interpolation, endpoint
+  clamping, a legal zero that must not be treated as missing, no-GPS returning `None`, NumPy inputs).
+
+### Tests
+
+- Suite 82 → **92 passed**; `aeb/` statement coverage 74.2% (2026-11-17, local `pytest-cov`).
+
 ## [0.4.0] - 2026-11-16
 
 ### Added
@@ -149,6 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pluggable detector backends: YOLOv8 (`yolo` extra) and D-FINE (`dfine` extra) behind a common `BaseDetector` interface.
 - Zero-data test suite (12 cases) and GitHub Actions CI (Ubuntu / Windows × Python 3.10 / 3.12).
 
+[0.4.1]: https://github.com/H12Y10/mono-aeb/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/H12Y10/mono-aeb/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/H12Y10/mono-aeb/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/H12Y10/mono-aeb/compare/v0.3.0...v0.3.1
