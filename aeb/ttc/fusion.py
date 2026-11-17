@@ -18,6 +18,16 @@ class TTCFusion:
         self.persist_k = persist_k
         self._last = {}  # track_id -> (frame_idx, fused_ttc)
 
+    def prune(self, frame_idx: int) -> None:
+        """丢弃已不可能再被保持逻辑用到的项（超过 persist_k 帧）。
+
+        只删过期项，不删仍在窗口内的轨迹：删早了会让"目标短暂丢失后恢复"
+        拿不到上一有效值，等于改变决策行为。
+        """
+        stale = [tid for tid, (pf, _) in self._last.items() if frame_idx - pf > self.persist_k]
+        for tid in stale:
+            del self._last[tid]
+
     def fuse(self, track_id: int, frame_idx: int, ttc_distance: float, ttc_scale: float) -> float:
         ttc = min(ttc_distance, ttc_scale)
 

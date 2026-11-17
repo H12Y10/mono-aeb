@@ -73,9 +73,13 @@ class AEBPipeline:
             )
 
             # 仅在自车路径内参与决策；路径外保持 NORMAL
-            level = self.sm.decide(risk) if in_path else RiskLevel.NORMAL
+            level = self.sm.decide(risk, frame_idx) if in_path else RiskLevel.NORMAL
             risk.level = level
             risks.append(risk)
+
+        # 清理已过期的保持项与轨迹状态：长视频不涨内存，也不让新轨迹继承旧等级。
+        self.fusion.prune(frame_idx)
+        self.sm.prune(frame_idx)
 
         global_level = max((r.level for r in risks), default=RiskLevel.NORMAL)
         return FrameResult(

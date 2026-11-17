@@ -20,6 +20,8 @@ class RiskStateMachine:
         self.hys = hysteresis
         self.ego_speed = ego_speed_mps
         self._level = {}  # track_id -> RiskLevel
+        self._last_seen = {}  # track_id -> frame_idx（供 prune 用）
+        self._frame = -1
 
     def set_ego_speed(self, v_mps: float):
         """更新自车速度，阈值梯随之平移（demo 逐帧/逐视频更新）。"""
@@ -58,8 +60,20 @@ class RiskStateMachine:
     # 留 CLOSING_MARGIN 容差给 GPS/加速度噪声。与智能驾驶侧链条一致。
     CLOSING_MARGIN = 5.0
 
-    def decide(self, risk: RiskFeature) -> RiskLevel:
+    def prune(self, frame_idx: int, ttl_frames: int = 30) -> None:
+        """清理超过 ttl 帧未再出现的轨迹状态。
+
+        与 tracker 的 track_buffer 同量级：轨迹在 buffer 内重新出现时，
+        迟滞状态应当保留；超出后该 id 不可能再被复用，留着只会让长视频内存增长。
+        """
+        stale = [tid for tid, f in self._last_seen.items() if frame_idx - f > ttl_frames]
+        for tid in stale:
+            self._last_seen.pop(tid, None)
+            self._level.pop(tid, None)
+
+    def decide(self, risk: RiskFeature, frame_idx: int | None = None) -> RiskLevel:
         ttc = risk.ttc_fused
+        self._last_seen[risk.track_id] = frame_idx if frame_idx is not None else self._frame
         # 先过物理先验闸：不自洽的 TTC 一律当无风险，不参与升级/迟滞。
         if (
             np.isfinite(ttc)
